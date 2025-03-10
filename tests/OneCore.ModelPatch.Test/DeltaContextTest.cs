@@ -16,24 +16,26 @@ public class DeltaContextTest : Disposable
         Context = CreateContext();
         Services = new ServiceCollection()
             .AddLogging()
-            //.AddScoped(typeof(DataModelService<>))
+            .AddScoped(typeof(DataModelService<>))
             .AddScoped(p => CreateContext())
             .BuildServiceProvider();
 
-        Service = new DataModelService<TestDbContext>(Services, Context);
+        Service = Services.GetRequiredService<DataModelService<TestDbContext>>();
     }
 
     [TestMethod]
     public async Task TestInsert()
     {
+        Guid id = ID.Create();
         var delta = new Delta<Blog> {
+            [nameof(Blog.BlogId).ToLower()] = id,
             [nameof(Blog.Url).ToLower()] = "myblog.com",
             [nameof(Blog.Name).ToLower()] = "MyBlog"
         };
 
         var result = await Service.Patch(delta);
         Assert.AreEqual(ResultType.Success, result.ResultType);
-        Assert.AreEqual(1, result.Model);
+        Assert.AreEqual(id, result.Model.Model?.BlogId);
 
         var count = await Context.Blogs.CountAsync();
         Assert.AreEqual(1, count);
@@ -93,10 +95,9 @@ public class DeltaContextTest : Disposable
 
         var result = await Service.Patch(delta);
         Assert.AreEqual(ResultType.Fail, result.ResultType);
-        Assert.AreEqual(0, result.Model);
 
         var count = await Context.Blogs.CountAsync();
-        Assert.AreEqual(1, count);
+        Assert.AreEqual(0, count);
     }
 
     protected override void OnDispose()
@@ -108,7 +109,7 @@ public class DeltaContextTest : Disposable
     private static TestDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<TestDbContext>()
-             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
         var context = new TestDbContext(options);

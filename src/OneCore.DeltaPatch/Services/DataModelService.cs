@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace OneCore.ModelPatch.Services;
 
@@ -13,11 +15,11 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
     protected TContext Context { get; }
     protected ModelOptions Options { get; }
 
-    public DataModelService(IServiceProvider services, TContext context, ModelOptions? options = null) : base(services)
+    public DataModelService(IServiceProvider services, TContext context, IOptions<ModelOptions> options) : base(services)
     {
         var dbsets = MetaType.GetMetadatas(typeof(TContext), Flags);
         Context = context;
-        Options = options ?? new();
+        Options = options.Value ?? new();
         var sets = dbsets.Where(p => p.FPType.IsGenericType && p.FPType.GetGenericTypeDefinition() == SetType);
         Sets = sets.ToData(p => p.FPType.GetGenericArguments()[0], p => p.GetValue(context)!);
     }
@@ -46,13 +48,15 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
                 .SelectResultAsync(ProcessExpression) :
             Result.Fail<T>($"{typeof(TContext)} does not contain DbSet of type {type.FullName}");
 
-        async Task<IResult<T>> ProcessExpression(Expression<Func<T, bool>> expression)
+        async Task<IResult<T>> ProcessExpression(Expression<Func<T, bool>>? expression)
         {
+            Debug.Assert(expression is not null, $"{nameof(expression)} is null. It should not be null");
+
             var source = await set.FirstOrDefaultAsync(expression, cancellationToken).ConfigureAwait(false);
             var isnew = source is null;
             var callback = isnew ? set.Add : new Func<T, EntityEntry<T>>(set.Update);
             var (key, model) = PatchModel(context, source ?? new(), delta, parentKey);
-            return await model.ValidateModel(ServiceProvider, true).ToResult()
+            return await model.ValidateModel(ServiceProvider, true)
                 .SelectResultAsync(async () => {
                     callback.Invoke(model);
                     var next = await ProcessChildrenModels(context, delta, key, cancellationToken);
@@ -127,7 +131,8 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
             var key = metadata.GetValue(model);
             if (key is null || (key is Guid pkey && pkey == Guid.Empty))
             {
-                key = Options.KeyGenerator.Create();
+                if (!delta.TryGetValue(metadata.Name, out key))
+                    key = Options.KeyGenerator.Create();
                 modelKey.Set(metadata.Name, key);
                 metadata.SetValue(model, key);
             }
