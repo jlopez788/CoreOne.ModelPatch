@@ -54,10 +54,10 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
 
             var source = await set.FirstOrDefaultAsync(expression, cancellationToken).ConfigureAwait(false);
             var isnew = source is null;
-            var callback = isnew ? set.Add : new Func<T, EntityEntry<T>>(set.Update);
             var (key, model) = PatchModel(context, source ?? new(), delta, parentKey);
             return await model.ValidateModel(ServiceProvider, true)
                 .SelectResultAsync(async () => {
+                    var callback = isnew ? set.Add : new Func<T, EntityEntry<T>>(set.Update);
                     callback.Invoke(model);
                     var next = await ProcessChildrenModels(context, delta, key, cancellationToken);
                     return next.Select(() => model);
@@ -131,7 +131,12 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
             var key = metadata.GetValue(model);
             if (key is null || (key is Guid pkey && pkey == Guid.Empty))
             {
-                if (!delta.TryGetValue(metadata.Name, out key))
+                if (delta.TryGetValue(metadata.Name, out key))
+                {
+                    var parsed = Types.Parse(metadata.FPType, key);
+                    key = parsed.Success ? parsed.Model : Options.KeyGenerator.Create();
+                }
+                else
                     key = Options.KeyGenerator.Create();
                 modelKey.Set(metadata.Name, key);
                 metadata.SetValue(model, key);

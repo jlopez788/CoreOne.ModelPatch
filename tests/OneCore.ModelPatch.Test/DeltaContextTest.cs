@@ -17,7 +17,7 @@ public class DeltaContextTest : Disposable
         Services = new ServiceCollection()
             .AddLogging()
             .AddScoped(typeof(DataModelService<>))
-            .AddScoped(p => CreateContext())
+            .AddSingleton(Context)
             .BuildServiceProvider();
 
         Service = Services.GetRequiredService<DataModelService<TestDbContext>>();
@@ -44,8 +44,8 @@ public class DeltaContextTest : Disposable
     [TestMethod]
     public async Task InsertParentChild()
     {
-        var post1 = new Post { Content = "Content", Title = "First Post" };
-        var post2 = new Post { Content = "Content", Title = "Second Post" };
+        var post1 = new Post { PostId = ID.Create(), Content = "Content", Title = "First Post" };
+        var post2 = new Post { PostId = ID.Create(), Content = "Content", Title = "Second Post" };
         var blog = new Blog {
             BlogId = ID.Create(),
             Name = "Unit1",
@@ -57,7 +57,7 @@ public class DeltaContextTest : Disposable
         Assert.AreEqual(ResultType.Success, result.ResultType);
 
         var data = await Context.Blogs.Include(p => p.Posts)
-            .FirstOrDefaultAsync(p => p.BlogId == blog.BlogId);
+            .FirstOrDefaultAsync();
         Assert.AreEqual(2, data!.Posts.Count);
     }
 

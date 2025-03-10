@@ -2,13 +2,13 @@
 
 namespace OneCore.ModelPatch.Models;
 
-public class TransactionState : IResult, IAsyncDisposable
+public sealed class TransactionState : IResult, IAsyncDisposable
 {
+    private volatile bool _Disposed;
+    private IDbContextTransaction? Transaction;
+    public bool IsDisposed => _Disposed;
     public string? Message { get; }
     public ResultType ResultType { get; }
-    protected IDbContextTransaction? Transaction { get; private set; }
-    private volatile bool _Disposed;
-    public bool IsDisposed => _Disposed;
 
     public TransactionState(IDbContextTransaction transaction)
     {
@@ -43,8 +43,7 @@ public class TransactionState : IResult, IAsyncDisposable
 
     private void ClearTransaction()
     {
-        _Disposed = true;
-        Transaction?.Dispose();
-        Transaction = null;
+        Interlocked.Exchange(ref _Disposed, true);
+        Interlocked.Exchange(ref Transaction, null)?.Dispose();
     }
 }

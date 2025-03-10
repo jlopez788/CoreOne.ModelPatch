@@ -51,8 +51,7 @@ public static class ModelContextExtensions
     }
 
     public static IList<Metadata> GetPrimaryKeys(this ModelContext context) => context.Keys.Select(p => context.Properties.Get(p))
-              .Where(p => p != Metadata.Empty)
-              .ToList();
+              .ToList(p => p != Metadata.Empty);
 
     public static IResult<Expression<Func<T, bool>>> GetPrimaryKeysExpression<T>(this ModelContext context, Delta model)
     {
@@ -62,7 +61,7 @@ public static class ModelContextExtensions
             var body = context.GetPrimaryKeys()
                 .ToData(p => p.Name, GetValue)
                 .Aggregate((Expression?)null, BuildExpression);
-            var lambda = body is null ? null : Expression.Lambda<Func<T, bool>>(body, param);
+            var lambda = body is not null ? Expression.Lambda<Func<T, bool>>(body, param) : null;
             return new Result<Expression<Func<T, bool>>>(lambda, true);
 
             object? GetValue(Metadata p)
