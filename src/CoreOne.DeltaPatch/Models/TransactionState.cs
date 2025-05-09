@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore.Storage;
 
-namespace OneCore.ModelPatch.Models;
+namespace CoreOne.ModelPatch.Models;
 
 public sealed class TransactionState : IResult, IAsyncDisposable
 {

@@ -1,4 +1,4 @@
-﻿namespace OneCore.ModelPatch;
+﻿namespace CoreOne.ModelPatch;
 
 public class Delta : Data<string, object>
 {

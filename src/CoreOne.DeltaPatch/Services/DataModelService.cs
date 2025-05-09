@@ -4,7 +4,7 @@ using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 
-namespace OneCore.ModelPatch.Services;
+namespace CoreOne.ModelPatch.Services;
 
 public class DataModelService<TContext> : BaseService where TContext : DbContext
 {

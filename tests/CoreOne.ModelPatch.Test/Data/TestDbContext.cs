@@ -1,7 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
-using OneCore.ModelPatch.Tests.Models;
+﻿using CoreOne.ModelPatch.Test.Models;
+using Microsoft.EntityFrameworkCore;
 
-namespace OneCore.ModelPatch.Tests.Data;
+namespace CoreOne.ModelPatch.Test.Data;
 
 public class TestDbContext(DbContextOptions options) : DbContext(options)
 {

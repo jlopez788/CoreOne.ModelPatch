@@ -1,8 +1,12 @@
+using CoreOne.ModelPatch;
+using CoreOne.ModelPatch.Services;
+using CoreOne.ModelPatch.Test.Data;
+using CoreOne.ModelPatch.Test.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace OneCore.ModelPatch.Test;
+namespace CoreOne.ModelPatch.Test;
 
 [TestClass]
 public class DeltaContextTest : Disposable

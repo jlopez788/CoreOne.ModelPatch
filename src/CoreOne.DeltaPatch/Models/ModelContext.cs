@@ -1,4 +1,4 @@
-﻿namespace OneCore.ModelPatch.Models;
+﻿namespace CoreOne.ModelPatch.Models;
 
 public class ModelContext
 {

@@ -3,11 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34518.117
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OneCore.ModelPatch", "src\OneCore.DeltaPatch\OneCore.ModelPatch.csproj", "{FEE2006D-60F6-4E18-8108-521DB62B6E62}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CoreOne.ModelPatch", "src\CoreOne.DeltaPatch\CoreOne.ModelPatch.csproj", "{FEE2006D-60F6-4E18-8108-521DB62B6E62}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OneCore", "..\OneCore\src\OneCore\OneCore.csproj", "{4A9AE398-633A-4CD9-83B8-65DE75BA9602}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OneCore.ModelPatch.Test", "tests\OneCore.ModelPatch.Test\OneCore.ModelPatch.Test.csproj", "{51610A4B-ECCE-4999-85E5-B44AECEF399D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CoreOne.ModelPatch.Test", "tests\CoreOne.ModelPatch.Test\CoreOne.ModelPatch.Test.csproj", "{51610A4B-ECCE-4999-85E5-B44AECEF399D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,10 +17,6 @@ Global
 		{FEE2006D-60F6-4E18-8108-521DB62B6E62}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FEE2006D-60F6-4E18-8108-521DB62B6E62}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FEE2006D-60F6-4E18-8108-521DB62B6E62}.Release|Any CPU.Build.0 = Release|Any CPU
-		{4A9AE398-633A-4CD9-83B8-65DE75BA9602}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4A9AE398-633A-4CD9-83B8-65DE75BA9602}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4A9AE398-633A-4CD9-83B8-65DE75BA9602}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4A9AE398-633A-4CD9-83B8-65DE75BA9602}.Release|Any CPU.Build.0 = Release|Any CPU
 		{51610A4B-ECCE-4999-85E5-B44AECEF399D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{51610A4B-ECCE-4999-85E5-B44AECEF399D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{51610A4B-ECCE-4999-85E5-B44AECEF399D}.Release|Any CPU.ActiveCfg = Release|Any CPU

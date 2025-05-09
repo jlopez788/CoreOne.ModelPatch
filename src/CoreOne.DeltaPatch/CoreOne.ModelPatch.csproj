@@ -7,11 +7,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.1" />
+        <PackageReference Include="CoreOne" Version="1.0.0" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.4" />
     </ItemGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\..\..\OneCore\src\OneCore\OneCore.csproj" />
-    </ItemGroup>
+ 
 
 </Project>

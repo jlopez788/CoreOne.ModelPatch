@@ -1,0 +1,14 @@
+﻿global using CoreOne.Collections;
+global using CoreOne.Comparers;
+global using CoreOne.Extensions;
+global using CoreOne.ModelPatch.Extensions;
+global using CoreOne.ModelPatch.Models;
+global using CoreOne.Models;
+global using CoreOne.Reflection;
+global using CoreOne.Results;
+global using CoreOne.Services;
+global using System.Collections;
+global using System.ComponentModel.DataAnnotations;
+global using System.Linq.Expressions;
+global using System.Reflection;
+global using ReferenceEqualityComparer = CoreOne.Comparers.ReferenceEqualityComparer;

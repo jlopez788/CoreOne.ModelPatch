@@ -1,7 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using CoreOne.ModelPatch.Models;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace OneCore.ModelPatch.Extensions;
+namespace CoreOne.ModelPatch.Extensions;
 
 public static class DataContextExtensions
 {

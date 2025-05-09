@@ -1,4 +1,4 @@
-﻿namespace OneCore.ModelPatch.Models;
+﻿namespace CoreOne.ModelPatch.Models;
 
 public readonly struct PatchResult<T>(T? model, int rows) : IResult<T>
 {

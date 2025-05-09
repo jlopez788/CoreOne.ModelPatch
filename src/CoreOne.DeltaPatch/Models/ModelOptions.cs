@@ -1,6 +1,6 @@
-﻿using OneCore.ModelPatch.Services;
+﻿using CoreOne.ModelPatch.Services;
 
-namespace OneCore.ModelPatch.Models;
+namespace CoreOne.ModelPatch.Models;
 
 public class ModelOptions
 {

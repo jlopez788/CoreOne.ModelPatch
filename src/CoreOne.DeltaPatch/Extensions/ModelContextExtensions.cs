@@ -1,7 +1,8 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using CoreOne.ModelPatch.Models;
+using Newtonsoft.Json.Linq;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace OneCore.ModelPatch.Extensions;
+namespace CoreOne.ModelPatch.Extensions;
 
 public static class ModelContextExtensions
 {

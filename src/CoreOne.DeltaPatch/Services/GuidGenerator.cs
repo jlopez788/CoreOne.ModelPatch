@@ -1,4 +1,6 @@
-﻿namespace OneCore.ModelPatch.Services;
+﻿using CoreOne.ModelPatch;
+
+namespace CoreOne.ModelPatch.Services;
 
 public class GuidGenerator : IKeyGenerator
 {
