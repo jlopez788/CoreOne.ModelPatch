@@ -1,6 +1,4 @@
-﻿using CoreOne.ModelPatch;
-
-namespace CoreOne.ModelPatch.Services;
+﻿namespace CoreOne.ModelPatch.Services;
 
 public class GuidGenerator : IKeyGenerator
 {

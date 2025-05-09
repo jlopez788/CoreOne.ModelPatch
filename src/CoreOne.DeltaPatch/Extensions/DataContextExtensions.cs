@@ -1,5 +1,4 @@
-﻿using CoreOne.ModelPatch.Models;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace CoreOne.ModelPatch.Extensions;

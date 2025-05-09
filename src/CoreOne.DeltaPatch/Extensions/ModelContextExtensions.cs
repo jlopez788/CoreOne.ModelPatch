@@ -1,5 +1,4 @@
-﻿using CoreOne.ModelPatch.Models;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CoreOne.ModelPatch.Extensions;
