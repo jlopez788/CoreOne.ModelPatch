@@ -23,6 +23,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\CoreOne.DeltaPatch\CoreOne.ModelPatch.csproj" />
+        <ProjectReference Include="..\..\src\CoreOne.ModelPatch\CoreOne.ModelPatch.csproj" />
     </ItemGroup>
 
 </Project>

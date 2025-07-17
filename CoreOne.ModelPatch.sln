@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34518.117
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CoreOne.ModelPatch", "src\CoreOne.DeltaPatch\CoreOne.ModelPatch.csproj", "{FEE2006D-60F6-4E18-8108-521DB62B6E62}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CoreOne.ModelPatch", "src\CoreOne.ModelPatch\CoreOne.ModelPatch.csproj", "{FEE2006D-60F6-4E18-8108-521DB62B6E62}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CoreOne.ModelPatch.Test", "tests\CoreOne.ModelPatch.Test\CoreOne.ModelPatch.Test.csproj", "{51610A4B-ECCE-4999-85E5-B44AECEF399D}"
 EndProject
