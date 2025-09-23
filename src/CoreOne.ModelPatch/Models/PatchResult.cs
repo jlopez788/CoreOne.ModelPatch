@@ -6,4 +6,5 @@ public readonly struct PatchResult<T>(T? model, int rows) : IResult<T>
     public int Rows { get; init; } = rows;
     public string? Message { get; init; }
     public ResultType ResultType { get; init; } = model is not null ? ResultType.Success : ResultType.Fail;
+    public bool Success { get; } = model is not null;
 }

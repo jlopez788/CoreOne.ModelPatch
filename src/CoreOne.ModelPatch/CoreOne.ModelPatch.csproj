@@ -5,7 +5,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>13</LangVersion>
-        <Version>1.1</Version>
+        <Version>1.2</Version>
         <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
         <Title>CoreOne.ModelPatch</Title>
         <Authors>Juan Lopez</Authors>
@@ -31,8 +31,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="CoreOne" Version="1.0.0" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.4" />
+        <PackageReference Include="CoreOne" Version="1.0.5.2" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.9" />
     </ItemGroup>
 
 </Project>

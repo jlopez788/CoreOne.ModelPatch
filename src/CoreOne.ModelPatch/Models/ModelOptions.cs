@@ -6,7 +6,7 @@ public class ModelOptions
 {
     public Data<Type, IEqualityComparer> Comparer { get; } = [];
     public DataHashSet<Type, string> IgnoreFields { get; }
-    public IKeyGenerator KeyGenerator { get; set; } = new IdGuidGenerator();
+    public IKeyGenerator KeyGenerator { get; set; } = new GuidGenerator();
 
     public ModelOptions()
     {

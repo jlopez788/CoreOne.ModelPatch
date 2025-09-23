@@ -2,5 +2,5 @@
 
 public class GuidGenerator : IKeyGenerator
 {
-    public Guid Create() => Guid.NewGuid();
+    public Guid Create() => Guid.CreateVersion7();
 }

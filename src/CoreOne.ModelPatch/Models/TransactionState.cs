@@ -9,11 +9,13 @@ public sealed class TransactionState : IResult, IAsyncDisposable
     public bool IsDisposed => _Disposed;
     public string? Message { get; }
     public ResultType ResultType { get; }
+    public bool Success { get; }
 
     public TransactionState(IDbContextTransaction transaction)
     {
         Transaction = transaction;
         ResultType = ResultType.Success;
+        Success = true;
     }
 
     public TransactionState(string message)
@@ -21,6 +23,7 @@ public sealed class TransactionState : IResult, IAsyncDisposable
         _Disposed = true;
         Message = message;
         ResultType = ResultType.Fail;
+        Success = false;
     }
 
     public async Task Commit()
