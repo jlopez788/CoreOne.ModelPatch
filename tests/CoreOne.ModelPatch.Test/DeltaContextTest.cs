@@ -1,5 +1,3 @@
-using CoreOne.ModelPatch;
-using CoreOne.ModelPatch.Services;
 using CoreOne.ModelPatch.Test.Data;
 using CoreOne.ModelPatch.Test.Models;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +9,7 @@ namespace CoreOne.ModelPatch.Test;
 [TestClass]
 public class DeltaContextTest : Disposable
 {
+    protected SToken Token = SToken.Create();
     protected TestDbContext Context { get; set; } = default!;
     protected DataModelService<TestDbContext> Service { get; set; } = default!;
     protected IServiceProvider Services { get; set; } = default!;
@@ -28,24 +27,6 @@ public class DeltaContextTest : Disposable
     }
 
     [TestMethod]
-    public async Task TestInsert()
-    {
-        Guid id = ID.Create();
-        var delta = new Delta<Blog> {
-            [nameof(Blog.BlogId).ToLower()] = id,
-            [nameof(Blog.Url).ToLower()] = "myblog.com",
-            [nameof(Blog.Name).ToLower()] = "MyBlog"
-        };
-
-        var result = await Service.Patch(delta);
-        Assert.AreEqual(ResultType.Success, result.ResultType);
-        Assert.AreEqual(id, result.Model.Model?.BlogId);
-
-        var count = await Context.Blogs.CountAsync();
-        Assert.AreEqual(1, count);
-    }
-
-    [TestMethod]
     public async Task InsertParentChild()
     {
         var post1 = new Post { PostId = ID.Create(), Content = "Content", Title = "First Post" };
@@ -55,14 +36,115 @@ public class DeltaContextTest : Disposable
             Name = "Unit1",
             Posts = [post1, post2]
         };
-        var json = Utility.Serialize(blog);
-        var delta = Utility.DeserializeObject<Delta<Blog>>(json);
-        var result = await Service.Patch(delta!);
+        var delta = ToDelta(blog);
+        var result = await Service.Patch(delta!, Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
 
         var data = await Context.Blogs.Include(p => p.Posts)
-            .FirstOrDefaultAsync();
-        Assert.AreEqual(2, data!.Posts.Count);
+            .FirstOrDefaultAsync(Token);
+        Assert.HasCount(2, data!.Posts);
+    }
+
+    [TestMethod]
+    public async Task TestInsert()
+    {
+        Guid id = ID.Create();
+
+        var delta = new Delta<Blog> {
+            [nameof(Blog.BlogId).ToLower()] = id,
+            [nameof(Blog.Url).ToLower()] = "myblog.com",
+            [nameof(Blog.Name).ToLower()] = "MyBlog"
+        };
+
+        var result = await Service.Patch(delta, Token);
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+        Assert.AreEqual(id, result.Model?.BlogId);
+
+        var count = await Context.Blogs.CountAsync(Token);
+        Assert.AreEqual(1, count);
+
+        var saved = await Context.Blogs.FirstOrDefaultAsync(p => p.BlogId == id, Token);
+        Assert.AreEqual(delta[nameof(Blog.Url).ToLower()], saved!.Url);
+    }
+
+    [TestMethod]
+    public async Task TestInsertIndex()
+    {
+        var blog = new Blog {
+            BlogId = ID.Create(),
+            Name = "my blog",
+            Tags = [
+                new Tag("tag1"),
+                new Tag("tag2")
+            ]
+        };
+        var content = Utility.Serialize(blog, true);
+
+        var result = await Service.Patch(ToDelta(blog), Token);
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+
+        var count = await Context.Tags.CountAsync(Token);
+        Assert.AreEqual(2, count);
+
+        try
+        {
+            blog = new Blog {
+                BlogId = ID.Create(),
+                Name = "another blog",
+                Tags = [
+                    new Tag("tag1"),
+            ]
+            };
+            content = Utility.Serialize(blog, true);
+
+            result = await Service.Patch(ToDelta(blog), Token);
+            Assert.AreEqual(ResultType.Success, result.ResultType);
+
+            count = await Context.Tags.CountAsync(Token);
+            Assert.AreEqual(2, count);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            throw;
+        }
+    }
+
+    [TestMethod]
+    public async Task TestUniqueIndeces()
+    {
+        var tag = new Tag { Id = ID.Create(), Name = "tag" };
+        var delta = ToDelta(tag);
+        var result = await Service.Patch(delta, Token);
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+    }
+
+    [TestMethod]
+    public async Task TestUniqueIndeces2()
+    {
+        var tag = new Tag { Id = ID.Create(), Name = "tag" };
+        var tag2 = new Tag { Id = ID.Create(), Name = "tag" };
+
+        var content = Utility.Serialize(new[] { tag, tag2 }, true);
+        var result = await Service.Patch(ToDelta(tag), Token);
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+
+        result = await Service.Patch(ToDelta(tag2), Token);
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+        Assert.IsNotNull(result?.Model);
+        Assert.AreEqual(result.Model.Id, tag.Id);
+
+        var count = await Context.Tags.CountAsync(Token);
+        Assert.AreEqual(1, count);
+
+        var tag3 = new Tag { Id = ID.Create(), Name = "tag2" };
+        result = await Service.Patch(ToDelta(tag3), Token);
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+        Assert.IsNotNull(result?.Model);
+        Assert.AreEqual(result.Model.Id, tag3.Id);
+
+        count = await Context.Tags.CountAsync(Token);
+        Assert.AreEqual(2, count);
     }
 
     [TestMethod]
@@ -79,12 +161,12 @@ public class DeltaContextTest : Disposable
         };
 
         Context.Blogs.Add(blog);
-        await Context.SaveChangesAsync();
+        await Context.SaveChangesAsync(Token);
 
-        var result = await Service.Patch(delta);
+        var result = await Service.Patch(delta, Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
 
-        var source = await Context.Blogs.FirstOrDefaultAsync(p => p.BlogId == blog.BlogId);
+        var source = await Context.Blogs.FirstOrDefaultAsync(p => p.BlogId == blog.BlogId, Token);
         Assert.IsNotNull(source);
         Assert.AreEqual(newName, source.Name);
     }
@@ -94,18 +176,19 @@ public class DeltaContextTest : Disposable
     {
         var delta = new Delta<Blog> {
             [nameof(Blog.Url).ToLower()] = "myblog.com",
-            [nameof(Blog.Name).ToLower()] = "Name is too long for this blog model. Validation should fail"
+            [nameof(Blog.Name).ToLower()] = "Lorem ipsum dolor sit amet, consectetuer adipiscing."
         };
 
-        var result = await Service.Patch(delta);
+        var result = await Service.Patch(delta, Token);
         Assert.AreEqual(ResultType.Fail, result.ResultType);
 
-        var count = await Context.Blogs.CountAsync();
+        var count = await Context.Blogs.CountAsync(Token);
         Assert.AreEqual(0, count);
     }
 
     protected override void OnDispose()
     {
+        Token.Dispose();
         Context.Dispose();
         base.OnDispose();
     }
@@ -120,4 +203,6 @@ public class DeltaContextTest : Disposable
         context.Database.EnsureCreated();
         return context;
     }
+
+    private static Delta<T> ToDelta<T>(T model) where T : class, new() => Utility.DeserializeObject<Delta<T>>(Utility.Serialize(model))!;
 }

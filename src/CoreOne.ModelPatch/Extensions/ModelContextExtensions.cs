@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CoreOne.ModelPatch.Extensions;
 
-public static class ModelContextExtensions
+internal static class ModelContextExtensions
 {
     public static DataList<ModelContext, Delta> GetChildren(this ModelContext context, Delta delta)
     {
@@ -46,12 +46,12 @@ public static class ModelContextExtensions
                 childLink = metas.FirstOrDefault(p => test.Contains(p.Name)).Name;
             }
 
-            return new ModelLink(parentLink ?? "", childLink);
+            return new ModelLink(parentLink ?? [], childLink);
         }
     }
 
-    public static IList<Metadata> GetPrimaryKeys(this ModelContext context) => context.Keys.Select(p => context.Properties.Get(p))
-              .ToList(p => p != Metadata.Empty);
+    public static IEnumerable<List<Metadata>> GetPrimaryKeys(this ModelContext context) => context.Keys.Select(p => p.Select(m => context.Properties.Get(m.Name))
+        .ToList(p => p != Metadata.Empty));
 
     public static IResult<Expression<Func<T, bool>>> GetPrimaryKeysExpression<T>(this ModelContext context, Delta model)
     {
@@ -59,8 +59,8 @@ public static class ModelContextExtensions
         {
             var param = Expression.Parameter(typeof(T), "instance");
             var body = context.GetPrimaryKeys()
-                .ToData(p => p.Name, GetValue)
-                .Aggregate((Expression?)null, BuildExpression);
+                .Select(entry => entry.ToData(p => p.Name, GetValue))
+                .Aggregate((Expression?)null, BuildDataExpression);
             var lambda = body is not null ? Expression.Lambda<Func<T, bool>>(body, param) : null;
             return new Result<Expression<Func<T, bool>>>(lambda, true);
 
@@ -69,6 +69,11 @@ public static class ModelContextExtensions
                 var ovalue = model.Get(p.Name);
                 var value = Types.Parse(p.FPType, ovalue);
                 return value.Model ?? p.FPType.GetDefault();
+            }
+            Expression? BuildDataExpression(Expression? next, Data<string, object?> data)
+            {
+                var expression = data.Aggregate((Expression?)null, BuildExpression);
+                return next is null ? expression : Expression.OrElse(next, expression!);
             }
             Expression BuildExpression(Expression? next, KeyValuePair<string, object?> kp)
             {

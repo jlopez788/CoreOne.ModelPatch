@@ -11,6 +11,5 @@ public class Post
 
     public Guid MyBlogId { get; set; }
     [ForeignKey(nameof(MyBlogId))]
-    [InverseProperty(nameof(Models.Blog.Posts))]
     public Blog? Blog { get; set; }
 }
