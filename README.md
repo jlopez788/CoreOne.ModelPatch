@@ -34,6 +34,7 @@ public class User
 {
     public int Id { get; set; }
     public string Name { get; set; }
+    public string OtherField { get; set; }
     public Address Location { get; set; }
     public ICollection<Tag> Tags { get; set; }
 }
@@ -70,18 +71,20 @@ var model = new User {
         new UserTag { Value = "tag2" } // this record is added
     }
 };
-/* This step should come from API as Delta<T>
- * but for testing purposes, this is how we convert to delta
- */
-var delta = Utility.DeserializeObject<Delta<T>>(Utility.Serialize(model))!;
+
 ```
 
 ### 3. Apply the Patch
 
+Only fields present in the delta model are updated, if certain fields are not available then that field does not get the update.
+
 ```csharp
-
+/* This step should come from API as Delta<T>
+ * but for testing purposes, this is how we convert to delta
+ */
+var delta = Utility.DeserializeObject<Delta<T>>(Utility.Serialize(model))!;
+delta.Remove("OtherField");
 var dataService = new DataModelService<YourContext>(IServiceProvider instance, yourContextInstance);
-
 var result = await dataService.Patch(delta);
 ```
 
@@ -90,22 +93,21 @@ This will update the `Name` and `Location.City` properties of the `User` entity.
 ## 🧪 Sample API Endpoint
 
 ```csharp
+private readonly DataModelService _dataService;
+
+public UserController(DataModelService dataService) => _dataService = dataService;
+
 [HttpPatch("{id}")]
-public IActionResult PatchUser(int id, [FromBody] Dictionary<string, object> patchData)
+public async Task<IActionResult> PatchUser(int id, [FromBody] Delta<User> patchData, CancellationToken cancellationToken)
 {
-    var user = _dbContext.Users.Find(id);
-    if (user == null) return NotFound();
-
-    ModelPatch.Apply(user, patchData);
-    _dbContext.SaveChanges();
-
-    return NoContent();
+    var result = await _dataService.Patch(delta, cancellationToken);
+    return Updated(result);
 }
 ```
 
 ## 📚 Documentation
 
-The library uses reflection to traverse and update properties based on dot-separated keys. It’s designed to be intuitive and extensible for most EF Core scenarios.
+The library uses reflection to traverse and update properties. It’s designed to be intuitive and extensible for most EF Core scenarios.
 
 ## 🤝 Contributing
 
