@@ -8,10 +8,10 @@ namespace CoreOne.ModelPatch.Test.Models;
 [Index(nameof(Name), IsUnique = true)]
 public class Tag
 {
-    [Key] public Guid Id { get; set; } = ID.Create();
+    [Key] public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
 
-    public Guid MyBlogId { get; set; }
+    public Guid? MyBlogId { get; set; }
     [ForeignKey(nameof(MyBlogId))]
     public Blog? Blog { get; set; }
 
@@ -20,7 +20,6 @@ public class Tag
 
     public Tag(string name)
     {
-       // Id = ID.Create();
         Name = name;
     }
 }

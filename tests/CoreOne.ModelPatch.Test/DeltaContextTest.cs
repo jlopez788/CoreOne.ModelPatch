@@ -14,14 +14,15 @@ public class DeltaContextTest : Disposable
     protected DataModelService<TestDbContext> Service { get; set; } = default!;
     protected IServiceProvider Services { get; set; } = default!;
 
-    public DeltaContextTest()
+    [TestInitialize]
+    public void InitializeContext()
     {
         Context = CreateContext();
         Services = new ServiceCollection()
-            .AddLogging()
-            .AddScoped(typeof(DataModelService<>))
-            .AddSingleton(Context)
-            .BuildServiceProvider();
+                .AddLogging()
+                .AddScoped(typeof(DataModelService<>))
+                .AddSingleton(Context)
+                .BuildServiceProvider();
 
         Service = Services.GetRequiredService<DataModelService<TestDbContext>>();
     }
@@ -58,7 +59,7 @@ public class DeltaContextTest : Disposable
 
         var result = await Service.Patch(delta, Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
-        Assert.AreEqual(id, result.Model?.BlogId);
+        Assert.AreEqual(id, result.Model?.Model?.BlogId);
 
         var count = await Context.Blogs.CountAsync(Token);
         Assert.AreEqual(1, count);
@@ -132,7 +133,7 @@ public class DeltaContextTest : Disposable
         result = await Service.Patch(ToDelta(tag2), Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
         Assert.IsNotNull(result?.Model);
-        Assert.AreEqual(result.Model.Id, tag.Id);
+        Assert.AreEqual(result.Model?.Model?.Id, tag.Id);
 
         var count = await Context.Tags.CountAsync(Token);
         Assert.AreEqual(1, count);
@@ -141,10 +142,53 @@ public class DeltaContextTest : Disposable
         result = await Service.Patch(ToDelta(tag3), Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
         Assert.IsNotNull(result?.Model);
-        Assert.AreEqual(result.Model.Id, tag3.Id);
+        Assert.AreEqual(result.Model?.Model?.Id, tag3.Id);
 
         count = await Context.Tags.CountAsync(Token);
         Assert.AreEqual(2, count);
+    }
+
+    [TestMethod]
+    public async Task TestCollection()
+    {
+        var tag = new Tag("tag1") { Id = ID.Create() };
+        var tags = new List<Tag>() {
+            new Tag("tag1"){ Id = ID.Create() },
+            new Tag("tag2"),
+            new Tag("tag3")
+        };
+
+        var result = await Service.Patch(ToDelta(tag), Token);
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+
+        var resultCollection = await Service.Patch(ToDeltaCollection(tags), Token);
+        Assert.AreEqual(ResultType.Success, resultCollection.ResultType);
+
+        var patched = resultCollection.Model;
+        Assert.IsNotNull(patched);
+        Assert.HasCount(3, patched);
+
+        var count = await Context.Tags.CountAsync(Token);
+        Assert.AreEqual(3, count);
+    }
+
+    [TestMethod]
+    public async Task InserModelWithUniqueChild()
+    {
+        var blog = new Blog {
+            BlogId = ID.Create(),
+            Name = "Unit1",
+            Tags = [
+                new Tag("tag1"),
+                new Tag("tag1")
+            ]
+        };
+
+        var result = await Service.Patch(ToDelta(blog), Token);
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+
+        var count = await Context.Tags.CountAsync(Token);
+        Assert.AreEqual(1, count);
     }
 
     [TestMethod]
@@ -203,6 +247,8 @@ public class DeltaContextTest : Disposable
         context.Database.EnsureCreated();
         return context;
     }
+
+    private static DeltaCollection<T> ToDeltaCollection<T>(IEnumerable<T> model) where T : class, new() => Utility.DeserializeObject<DeltaCollection<T>>(Utility.Serialize(model))!;
 
     private static Delta<T> ToDelta<T>(T model) where T : class, new() => Utility.DeserializeObject<Delta<T>>(Utility.Serialize(model))!;
 }

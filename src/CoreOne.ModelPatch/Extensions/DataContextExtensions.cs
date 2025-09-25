@@ -37,7 +37,7 @@ public static class DataContextExtensions
         }
         catch (Exception ex)
         {
-            logger?.LogEntry(ex, "Failed to create transaction");
+            logger?.LogEntryX(ex, "Failed to create transaction");
             return new TransactionState(ex.InnerException?.Message ?? ex.Message);
         }
     }

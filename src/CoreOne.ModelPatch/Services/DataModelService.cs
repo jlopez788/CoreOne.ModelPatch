@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 
 namespace CoreOne.ModelPatch.Services;
@@ -50,13 +51,17 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
     /// <param name="items"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public Task<IResult<List<T>>> Patch<T>(DeltaCollection<T> items, CancellationToken cancellationToken = default) where T : class, new()
+    public Task<IResult<ReadOnlyCollection<ModelState<T>>>> Patch<T>(DeltaCollection<T> items, CancellationToken cancellationToken = default) where T : class, new()
     {
         var type = typeof(T);
-        var updated = new List<T>(items.Count);
-        return Patch(() => items.AggregateResultAsync((IResult<object>)new Result<object>(), (next, item) => ProcessUnknownModel(type, item, new(), cancellationToken)
-            .OnSuccessAsync(p => updated.Add((T)p)))
-            .SelectAsync(p => updated), cancellationToken);
+        var updated = new List<ModelState<T>>(items.Count);
+        IResult<object> result = new Result<object>();
+        return Patch(() => items.AggregateResultAsync(result, (next, item) => ProcessUnknownModel(type, item, new(), cancellationToken)
+            .OnSuccessAsync(p => {
+                if (p is ModelState<T> ms && ms.Model is not null)
+                    updated.Add(ms);
+            }))
+            .SelectAsync(p => updated.AsReadOnly()), cancellationToken);
     }
 
     /// <summary>
@@ -66,10 +71,28 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
     /// <param name="delta"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public Task<IResult<T>> Patch<T>(Delta<T> delta, CancellationToken cancellationToken = default) where T : class, new()
+    public Task<IResult<ModelState<T>>> Patch<T>(Delta<T> delta, CancellationToken cancellationToken = default) where T : class, new()
     {
         return Patch(() => ProcessUnknownModel(typeof(T), delta, new(), cancellationToken)
-            .SelectAsync(p => (T)p), cancellationToken);
+            .SelectAsync(p => (ModelState<T>)p), cancellationToken);
+    }
+
+    /// <summary>
+    ///
+    /// </summary>
+    /// <param name="items"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public Task<IResult<ReadOnlyCollection<object>>> PatchCollection(IEnumerable<object> items, CancellationToken cancellationToken = default)
+    {
+        var updated = new List<object>();
+        IResult<object> result = new Result<object>();
+        return Patch(() => items.ExcludeNulls()
+            .AggregateResultAsync(result, (next, item) => ProcessUnknownModel(item.GetType(), ToDelta(item), new(), cancellationToken)
+                .OnSuccessAsync(p => updated.Add(p)))
+            .SelectAsync(p => updated.AsReadOnly()), cancellationToken);
+
+        static Delta ToDelta(object instance) => Utility.DeserializeObject<Delta>(Utility.Serialize(instance)) ?? [];
     }
 
     private static InvokeCallback GetProcessModelInvoke(Type type) => LutProcessModel.GetOrAdd(type, p => {
@@ -83,9 +106,18 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         await using var transaction = await Context.BeginTransaction(Logger, cancellationToken).ConfigureAwait(false);
         var result = await transaction.SelectResultAsync(callback)
             .SelectAsync(async p => {
-                var rows = await Context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-                await transaction.Commit().ConfigureAwait(false);
-                return p;
+                try
+                {
+                    var rows = await Context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                    await transaction.Commit().ConfigureAwait(false);
+                    return p;
+                }
+                catch (Exception ex)
+                {
+                    await transaction.Rollback();
+                    Logger?.LogEntryX(ex, "Unable to save transaction");
+                    throw;
+                }
             });
         LogResult(result, "Failed processing patch");
         return result;
@@ -162,20 +194,26 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
                   child.Value.AggregateResultAsync(_, async (__, inner) => await ProcessUnknownModel(child.Key, inner, parentKey, cancellationToken)));
     }
 
-    private async Task<IResult<T>> ProcessModel<T>(ModelContext context, Delta delta, NamedKey parentKey, CancellationToken cancellationToken) where T : class, new()
+    private async Task<IResult<ModelState<T>>> ProcessModel<T>(ModelContext context, Delta delta, NamedKey parentKey, CancellationToken cancellationToken) where T : class, new()
     {
         var type = typeof(T);
         var set = (DbSet<T>?)Sets.Get(type);
         return set is not null ?
             await context.GetPrimaryKeysExpression<T>(delta)
                 .SelectResultAsync(ProcessExpression) :
-            Result.Fail<T>($"{typeof(TContext)} does not contain DbSet of type {type.FullName}");
+            Result.Fail<ModelState<T>>($"{typeof(TContext)} does not contain DbSet of type {type.FullName}");
 
-        async Task<IResult<T>> ProcessExpression(Expression<Func<T, bool>>? expression)
+        async Task<IResult<ModelState<T>>> ProcessExpression(Expression<Func<T, bool>>? expression)
         {
             Debug.Assert(expression is not null, $"{nameof(expression)} is null. It should not be null");
 
+            var localSource = set.Local.AsQueryable().FirstOrDefault(expression);
             var source = await set.FirstOrDefaultAsync(expression, cancellationToken).ConfigureAwait(false);
+            if (localSource is not null && source is null)
+            { // We matched with a model not yet sent to db but somehow is dup?
+                return new Result<ModelState<T>>(new ModelState<T>(localSource, CrudType.Read));
+            }
+
             var isnew = source is null;
             var (key, model) = PatchModel(context, source ?? new(), delta, parentKey, isnew);
             return await model.ValidateModel(ServiceProvider, true)
@@ -183,7 +221,7 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
                     var callback = isnew ? set.Add : new Func<T, EntityEntry<T>>(set.Update);
                     callback.Invoke(model);
                     var next = await ProcessChildrenModels(context, delta, key, cancellationToken);
-                    return next.Select(() => model);
+                    return next.Select(() => new ModelState<T>(model, isnew ? CrudType.Created : CrudType.Updated));
                 });
         }
     }
