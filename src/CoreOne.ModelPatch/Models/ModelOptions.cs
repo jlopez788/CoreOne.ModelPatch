@@ -19,6 +19,10 @@ public class ModelOptions
     ///
     /// </summary>
     public IKeyGenerator KeyGenerator { get; set; } = new GuidGenerator();
+    /// <summary>
+    ///
+    /// </summary>
+    public Func<Metadata, string>? NameResolver { get; set; }
 
     /// <summary>
     ///

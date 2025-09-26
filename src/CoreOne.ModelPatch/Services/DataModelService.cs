@@ -144,7 +144,8 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         void ProcessProperty(Metadata metadata)
         {
             var comparer = Options.Comparer.Get(metadata.FPType);
-            if (delta.TryGetValue(metadata.Name, out var value))
+            var name = Options.GetPreferredName(metadata);
+            if (delta.TryGetValue(name, out var value))
             {
                 var nextValue = Types.Parse(metadata.FPType, value);
                 if (nextValue.Success && comparer?.Equals(nextValue.Model, metadata.GetValue(model)) != true)
@@ -199,7 +200,7 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         var type = typeof(T);
         var set = (DbSet<T>?)Sets.Get(type);
         return set is not null ?
-            await context.GetPrimaryKeysExpression<T>(delta)
+            await context.GetPrimaryKeysExpression<T>(Options, delta)
                 .SelectResultAsync(ProcessExpression) :
             Result.Fail<ModelState<T>>($"{typeof(TContext)} does not contain DbSet of type {type.FullName}");
 
@@ -233,10 +234,21 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         if (cancellationToken.IsCancellationRequested)
             return Result.Fail<object>("Token has been cancelled");
 
-        var oresult = await GetProcessModelInvoke(context.Type).InvokeAsync(this, [context, delta, parentKey, cancellationToken]);
-        var meta = MetaType.GetMetadata(oresult?.GetType(), nameof(IResult<object>.Model));
-        return oresult is IResult result ? new Result<object>(meta.GetValue(oresult), result.ResultType) {
-            Message = result.Message
-        } : Result.Fail<object>("Unknown errors");
+        var callback = GetProcessModelInvoke(context.Type);
+    gtt:
+        try
+        {
+            var oresult = await callback.InvokeAsync(this, [context, delta, parentKey, cancellationToken]);
+            var meta = MetaType.GetMetadata(oresult?.GetType(), nameof(IResult<object>.Model));
+            return oresult is IResult result ? new Result<object>(meta.GetValue(oresult), result.ResultType) {
+                Message = result.Message
+            } : Result.Fail<object>("Unknown errors");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogEntryX(ex, $"Processing unknown model: {context.Type}");
+            goto gtt;
+            throw;
+        }
     }
 }

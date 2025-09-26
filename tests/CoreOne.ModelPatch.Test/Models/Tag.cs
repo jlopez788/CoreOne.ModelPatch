@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -9,6 +10,7 @@ namespace CoreOne.ModelPatch.Test.Models;
 public class Tag
 {
     [Key] public Guid Id { get; set; }
+    [JsonProperty("name_one")]
     public string Name { get; set; } = string.Empty;
 
     public Guid? MyBlogId { get; set; }

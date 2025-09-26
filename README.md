@@ -79,10 +79,7 @@ var model = new User {
 Only fields present in the delta model are updated, if certain fields are not available then that field does not get the update.
 
 ```csharp
-/* This step should come from API as Delta<T>
- * but for testing purposes, this is how we convert to delta
- */
-var delta = Utility.DeserializeObject<Delta<T>>(Utility.Serialize(model))!;
+var delta = model.ToDelta();
 delta.Remove("OtherField");
 var dataService = new DataModelService<YourContext>(IServiceProvider instance, yourContextInstance);
 var result = await dataService.Patch(delta);
