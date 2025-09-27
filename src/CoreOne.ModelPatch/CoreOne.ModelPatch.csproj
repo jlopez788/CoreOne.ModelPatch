@@ -1,38 +1,41 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <LangVersion>13</LangVersion>
-        <Version>1.2.1</Version>
-        <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-        <Title>CoreOne.ModelPatch</Title>
-        <Authors>Juan Lopez</Authors>
-        <Company>Juan Lopez</Company>
-        <PackageReadmeFile>README.md</PackageReadmeFile>
-        <PackageProjectUrl>https://github.com/jlopez788/CoreOne.ModelPatch</PackageProjectUrl>
-        <PackageId>CoreOne.ModelPatch</PackageId>
-        <Product>CoreOne.ModelPatch</Product>
-        <GenerateDocumentationFile>True</GenerateDocumentationFile>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<LangVersion>latest</LangVersion>
+		<Version>1.2.1</Version>
+		<Title>CoreOne.ModelPatch</Title>
+		<Authors>Juan Lopez</Authors>
+		<Company>Juan Lopez</Company>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageProjectUrl>https://github.com/jlopez788/CoreOne.ModelPatch</PackageProjectUrl>
+		<PackageId>CoreOne.ModelPatch</PackageId>
+		<Product>CoreOne.ModelPatch</Product>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	</PropertyGroup>
 
-    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-        <DebugType>none</DebugType>
-        <DebugSymbols>false</DebugSymbols>
-    </PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+	</PropertyGroup>
 
-    <ItemGroup>
-        <None Include="..\..\README.md">
-            <Pack>True</Pack>
-            <PackagePath>\</PackagePath>
-        </None>
-    </ItemGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+		<DebugType>none</DebugType>
+		<DebugSymbols>false</DebugSymbols>
+	</PropertyGroup>
 
-    <ItemGroup>
+	<ItemGroup>
+		<None Include="..\..\README.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="CoreOne" Version="1.1.1" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.9" />
-    </ItemGroup>
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.9" />
+	</ItemGroup>
 
 </Project>
