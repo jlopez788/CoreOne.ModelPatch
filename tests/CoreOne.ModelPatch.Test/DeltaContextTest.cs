@@ -199,6 +199,21 @@ public class DeltaContextTest : Disposable
     }
 
     [TestMethod]
+    public async Task TestUpdateEnumAsString()
+    {
+        var id = ID.Create();
+        var result = await Service.Patch(new User { Id = id, Status = UserStatus.New }.ToDelta(), Token);
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+
+        result = await Service.Patch(new User { Id = id, Status = UserStatus.Approved }.ToDelta(), Token);
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+
+        var user = await Context.Users.FirstOrDefaultAsync(p => p.Id == id, Token);
+        Assert.IsNotNull(user);
+        Assert.AreEqual(UserStatus.Approved, user.Status);
+    }
+
+    [TestMethod]
     public async Task UpdateModel()
     {
         var newName = "Unit2";

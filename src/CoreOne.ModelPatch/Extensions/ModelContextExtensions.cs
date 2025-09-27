@@ -58,10 +58,9 @@ internal static class ModelContextExtensions
         if (context.IsValid)
         {
             var param = Expression.Parameter(typeof(T), "instance");
-            var keys = context.GetPrimaryKeys();
             var body = context.GetPrimaryKeys()
-                .Select(entry => entry.ToDictionary(p => p.Name, GetValue))
-                .Aggregate((Expression?)null, BuildDataExpression);
+              .Select(entry => entry.ToDictionary(p => p.Name, GetValue))
+              .Aggregate((Expression?)null, BuildDataExpression);
             var lambda = body is not null ? Expression.Lambda<Func<T, bool>>(body, param) : null;
             return new Result<Expression<Func<T, bool>>>(lambda, true);
 

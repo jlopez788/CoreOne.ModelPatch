@@ -9,6 +9,11 @@ public class User
     [Key] public Guid Id { get; set; }
     public string? Email { get; set; }
     public bool IsLocked { get; set; }
-    public string? CreatedBy { get; set; }
-    public string? CreatedDate { get; set; }
+    public UserStatus Status { get; set; } = UserStatus.New;
+}
+
+public enum UserStatus
+{
+    New,
+    Approved
 }

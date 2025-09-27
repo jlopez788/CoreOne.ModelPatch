@@ -56,7 +56,7 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         var type = typeof(T);
         var updated = new List<ModelState<T>>(items.Count);
         IResult<object> result = new Result<object>();
-        return Patch(() => items.AggregateResultAsync(result, (next, item) => ProcessUnknownModel(type, item, new(), cancellationToken)
+        return Process(() => items.AggregateResultAsync(result, (next, item) => ProcessUnknownModel(type, item, new(), cancellationToken)
             .OnSuccessAsync(p => {
                 if (p is ModelState<T> ms && ms.Model is not null)
                     updated.Add(ms);
@@ -73,7 +73,7 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
     /// <returns></returns>
     public Task<IResult<ModelState<T>>> Patch<T>(Delta<T> delta, CancellationToken cancellationToken = default) where T : class, new()
     {
-        return Patch(() => ProcessUnknownModel(typeof(T), delta, new(), cancellationToken)
+        return Process(() => ProcessUnknownModel(typeof(T), delta, new(), cancellationToken)
             .SelectAsync(p => (ModelState<T>)p), cancellationToken);
     }
 
@@ -87,7 +87,7 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
     {
         var updated = new List<object>();
         IResult<object> result = new Result<object>();
-        return Patch(() => items.ExcludeNulls()
+        return Process(() => items.ExcludeNulls()
             .AggregateResultAsync(result, (next, item) => ProcessUnknownModel(item.GetType(), ToDelta(item), new(), cancellationToken)
                 .OnSuccessAsync(p => updated.Add(p)))
             .SelectAsync(p => updated.AsReadOnly()), cancellationToken);
@@ -101,26 +101,29 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         return MetaType.GetInvokeMethod(method);
     });
 
-    private async Task<IResult<T>> Patch<T>(Func<Task<IResult<T>>> callback, CancellationToken cancellationToken = default)
+    private async Task<IResult<T>> Process<T>(Func<Task<IResult<T>>> callback, CancellationToken cancellationToken = default)
     {
         await using var transaction = await Context.BeginTransaction(Logger, cancellationToken).ConfigureAwait(false);
         var result = await transaction.SelectResultAsync(callback)
-            .SelectAsync(async p => {
-                try
-                {
-                    var rows = await Context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-                    await transaction.Commit().ConfigureAwait(false);
-                    return p;
-                }
-                catch (Exception ex)
-                {
-                    await transaction.Rollback();
-                    Logger?.LogEntryX(ex, "Unable to save transaction");
-                    throw;
-                }
-            });
+            .SelectResultAsync(saveAsync);
         LogResult(result, "Failed processing patch");
         return result;
+
+        async Task<IResult<T>> saveAsync(T model)
+        {
+            try
+            {
+                var rows = await Context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await transaction.Commit().ConfigureAwait(false);
+                return new Result<T>(model);
+            }
+            catch (Exception ex)
+            {
+                await transaction.Rollback();
+                Logger?.LogEntryX(ex, "Unable to save transaction");
+                return Result.FromException<T>(ex);
+            }
+        }
     }
 
     private (NamedKey key, T model) PatchModel<T>(ModelContext context, T model, Delta delta, NamedKey parentKey, bool isnew)
@@ -131,7 +134,7 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
             .SelectMany(p => p.Where(k => k.IsPrimaryKey)
                 .Select(k => k.Name)
                 .ToHashSet(MStringComparer.OrdinalIgnoreCase)));
-        context.Properties.Where(p => p.Value.FPType.IsPrimitive() && !ignore.Contains(p.Key))
+        context.Properties.Where(p => !ignore.Contains(p.Key) && (p.Value.FPType.IsEnum || p.Value.FPType.IsPrimitive()))
             .Select(p => p.Value)
             .Each(ProcessProperty);
         context.GetPrimaryKeys()
@@ -209,6 +212,8 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
             Debug.Assert(expression is not null, $"{nameof(expression)} is null. It should not be null");
 
             var localSource = set.Local.AsQueryable().FirstOrDefault(expression);
+            var entry = localSource is not null ? Context.Entry(localSource) : null;
+
             var source = await set.FirstOrDefaultAsync(expression, cancellationToken).ConfigureAwait(false);
             if (localSource is not null && source is null)
             { // We matched with a model not yet sent to db but somehow is dup?
@@ -235,7 +240,6 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
             return Result.Fail<object>("Token has been cancelled");
 
         var callback = GetProcessModelInvoke(context.Type);
-    gtt:
         try
         {
             var oresult = await callback.InvokeAsync(this, [context, delta, parentKey, cancellationToken]);
@@ -247,7 +251,6 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         catch (Exception ex)
         {
             Logger.LogEntryX(ex, $"Processing unknown model: {context.Type}");
-            goto gtt;
             throw;
         }
     }
