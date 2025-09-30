@@ -4,8 +4,6 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
 
 namespace CoreOne.ModelPatch.Services;
 
@@ -48,33 +46,28 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
     ///
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    /// <param name="items"></param>
+    /// <param name="delta"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public Task<IResult<ReadOnlyCollection<ModelState<T>>>> Patch<T>(DeltaCollection<T> items, CancellationToken cancellationToken = default) where T : class, new()
+    public Task<IResult<ProcessedModelCollection>> Patch<T>(Delta<T> delta, CancellationToken cancellationToken = default) where T : class, new()
     {
-        var type = typeof(T);
-        var updated = new List<ModelState<T>>(items.Count);
-        IResult<object> result = new Result<object>();
-        return Process(() => items.AggregateResultAsync(result, (next, item) => ProcessUnknownModel(type, item, new(), cancellationToken)
-            .OnSuccessAsync(p => {
-                if (p is ModelState<T> ms && ms.Model is not null)
-                    updated.Add(ms);
-            }))
-            .SelectAsync(p => updated.AsReadOnly()), cancellationToken);
+        return Process(() => ProcessUnknownModel(typeof(T), delta, new(), cancellationToken), cancellationToken);
     }
 
     /// <summary>
     ///
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    /// <param name="delta"></param>
+    /// <param name="items"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public Task<IResult<ModelState<T>>> Patch<T>(Delta<T> delta, CancellationToken cancellationToken = default) where T : class, new()
+    public Task<IResult<ProcessedModelCollection>> Patch<T>(DeltaCollection<T> items, CancellationToken cancellationToken = default) where T : class, new()
     {
-        return Process(() => ProcessUnknownModel(typeof(T), delta, new(), cancellationToken)
-            .SelectAsync(p => (ModelState<T>)p), cancellationToken);
+        var type = typeof(T);
+        var updated = new ProcessedModelCollection();
+        IResult<ProcessedModelCollection> result = new Result<ProcessedModelCollection>();
+        return Process(() => items.AggregateResultAsync(result, (next, item) => ProcessUnknownModel(type, item, new(), cancellationToken)
+            .SelectAsync(p => updated.AddRange(p))), cancellationToken);
     }
 
     /// <summary>
@@ -83,14 +76,13 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
     /// <param name="items"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public Task<IResult<ReadOnlyCollection<object>>> PatchCollection(IEnumerable<object> items, CancellationToken cancellationToken = default)
+    public Task<IResult<ProcessedModelCollection>> PatchCollection(IEnumerable<object> items, CancellationToken cancellationToken = default)
     {
-        var updated = new List<object>();
-        IResult<object> result = new Result<object>();
+        var models = new ProcessedModelCollection();
+        IResult<ProcessedModelCollection> result = new Result<ProcessedModelCollection>();
         return Process(() => items.ExcludeNulls()
             .AggregateResultAsync(result, (next, item) => ProcessUnknownModel(item.GetType(), ToDelta(item), new(), cancellationToken)
-                .OnSuccessAsync(p => updated.Add(p)))
-            .SelectAsync(p => updated.AsReadOnly()), cancellationToken);
+                .SelectAsync(p => models.AddRange(p))), cancellationToken);
 
         static Delta ToDelta(object instance) => Utility.DeserializeObject<Delta>(Utility.Serialize(instance)) ?? [];
     }
@@ -191,62 +183,61 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         }
     }
 
-    private Task<IResult> ProcessChildrenModels(ModelContext context, Delta delta, NamedKey parentKey, CancellationToken cancellationToken)
+    private Task<IResult<ProcessedModelCollection>> ProcessChildrenModels(ModelContext context, Delta delta, NamedKey parentKey, CancellationToken cancellationToken)
     {
+        var models = new ProcessedModelCollection();
+        IResult<ProcessedModelCollection> result = new Result<ProcessedModelCollection>(models);
         return context.GetChildren(delta)
-                .AggregateAsync(Result.Ok, (_, child) =>
-                  child.Value.AggregateResultAsync(_, async (__, inner) => await ProcessUnknownModel(child.Key, inner, parentKey, cancellationToken)));
+                .AggregateAsync(result, (_, child) =>
+                  child.Value.AggregateResultAsync(_, async (__, inner) => await ProcessUnknownModel(child.Key, inner, parentKey, cancellationToken)
+                    .SelectAsync(p => models.AddRange(p))));
     }
 
-    private async Task<IResult<ModelState<T>>> ProcessModel<T>(ModelContext context, Delta delta, NamedKey parentKey, CancellationToken cancellationToken) where T : class, new()
+    private async Task<IResult<ProcessedModelCollection>> ProcessModel<T>(ModelContext context, Delta delta, NamedKey parentKey, CancellationToken cancellationToken) where T : class, new()
     {
         var type = typeof(T);
         var set = (DbSet<T>?)Sets.Get(type);
         return set is not null ?
             await context.GetPrimaryKeysExpression<T>(Options, delta)
                 .SelectResultAsync(ProcessExpression) :
-            Result.Fail<ModelState<T>>($"{typeof(TContext)} does not contain DbSet of type {type.FullName}");
+            Result.Fail<ProcessedModelCollection>($"{typeof(TContext)} does not contain DbSet of type {type.FullName}");
 
-        async Task<IResult<ModelState<T>>> ProcessExpression(Expression<Func<T, bool>>? expression)
+        async Task<IResult<ProcessedModelCollection>> ProcessExpression(Expression<Func<T, bool>> expression)
         {
-            Debug.Assert(expression is not null, $"{nameof(expression)} is null. It should not be null");
-
             var localSource = set.Local.AsQueryable().FirstOrDefault(expression);
             var entry = localSource is not null ? Context.Entry(localSource) : null;
-
             var source = await set.FirstOrDefaultAsync(expression, cancellationToken).ConfigureAwait(false);
             if (localSource is not null && source is null)
             { // We matched with a model not yet sent to db but somehow is dup?
-                return new Result<ModelState<T>>(new ModelState<T>(localSource, CrudType.Read));
+                return new Result<ProcessedModelCollection>([new ModelState(localSource, CrudType.Read)]);
             }
 
             var isnew = source is null;
+            var models = new ProcessedModelCollection();
             var (key, model) = PatchModel(context, source ?? new(), delta, parentKey, isnew);
+            models.Add(new ModelState(model, isnew ? CrudType.Created : CrudType.Updated));
             return await model.ValidateModel(ServiceProvider, true)
                 .SelectResultAsync(async () => {
                     var callback = isnew ? set.Add : new Func<T, EntityEntry<T>>(set.Update);
                     callback.Invoke(model);
                     var next = await ProcessChildrenModels(context, delta, key, cancellationToken);
-                    return next.Select(() => new ModelState<T>(model, isnew ? CrudType.Created : CrudType.Updated));
+                    return next.Select(p => models.AddRange(p));
                 });
         }
     }
 
-    private async Task<IResult<object>> ProcessUnknownModel(ModelContext context, Delta delta, NamedKey parentKey, CancellationToken cancellationToken = default)
+    private async Task<IResult<ProcessedModelCollection>> ProcessUnknownModel(ModelContext context, Delta delta, NamedKey parentKey, CancellationToken cancellationToken = default)
     {
         if (!Sets.ContainsKey(context.Type))
-            return Result.Fail<object>($"{typeof(TContext)} does not contain DbSet of type {context}");
+            return Result.Fail<ProcessedModelCollection>($"{typeof(TContext)} does not contain DbSet of type {context}");
         if (cancellationToken.IsCancellationRequested)
-            return Result.Fail<object>("Token has been cancelled");
+            return Result.Fail<ProcessedModelCollection>("Token has been cancelled");
 
         var callback = GetProcessModelInvoke(context.Type);
         try
         {
             var oresult = await callback.InvokeAsync(this, [context, delta, parentKey, cancellationToken]);
-            var meta = MetaType.GetMetadata(oresult?.GetType(), nameof(IResult<object>.Model));
-            return oresult is IResult result ? new Result<object>(meta.GetValue(oresult), result.ResultType) {
-                Message = result.Message
-            } : Result.Fail<object>("Unknown errors");
+            return oresult is IResult<ProcessedModelCollection> result ? result : Result.Fail<ProcessedModelCollection>($"Unknown errors");
         }
         catch (Exception ex)
         {
