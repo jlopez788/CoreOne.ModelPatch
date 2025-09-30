@@ -7,7 +7,9 @@ namespace CoreOne.ModelPatch.Test.Data;
 public class TestDbContext(DbContextOptions options) : DbContext(options)
 {
     public DbSet<Blog> Blogs { get; set; }
+    public DbSet<ChatMessage> Message { get; set; }
     public DbSet<Post> Posts { get; set; }
+    public DbSet<ChatSession> Session { get; set; }
     public DbSet<Tag> Tags { get; set; }
     public DbSet<User> Users { get; set; }
 

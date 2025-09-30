@@ -187,7 +187,7 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
     {
         var models = new ProcessedModelCollection();
         IResult<ProcessedModelCollection> result = new Result<ProcessedModelCollection>(models);
-        return context.GetChildren(delta)
+        return context.GetChildren(Options, delta)
                 .AggregateAsync(result, (_, child) =>
                   child.Value.AggregateResultAsync(_, async (__, inner) => await ProcessUnknownModel(child.Key, inner, parentKey, cancellationToken)
                     .SelectAsync(p => models.AddRange(p))));

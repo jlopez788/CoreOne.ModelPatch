@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
+using System.Reflection.Metadata;
 
 namespace CoreOne.ModelPatch.Test;
 
@@ -17,8 +18,7 @@ public class DeltaContextTest : Disposable
     protected DataModelService<TestDbContext> Service { get; set; } = default!;
     protected IServiceProvider Services { get; set; } = default!;
 
-    [TestInitialize]
-    public void InitializeContext()
+    public DeltaContextTest()
     {
         Context = CreateContext();
         Services = new ServiceCollection()
@@ -83,6 +83,28 @@ public class DeltaContextTest : Disposable
         var data = await Context.Blogs.Include(p => p.Posts)
             .FirstOrDefaultAsync(Token);
         Assert.HasCount(2, data!.Posts);
+    }
+
+    [TestMethod]
+    public async Task InsertSessions()
+    {
+        var session = new ChatSession("welcome");
+        session.Messages.Add(new ChatMessage(ChatRoleType.Agent, "hello"));
+        var result = await Service.Patch(session.ToDelta(), Token);
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+
+        var count = await Context.Message.CountAsync(p => p.SessionKey == session.Key, Token);
+        Assert.AreEqual(1, count);
+
+        var msg = await Context.Message.FirstOrDefaultAsync(p => p.SessionKey == session.Key, Token);
+        Assert.IsNotNull(msg);
+
+        msg = new ChatMessage(ChatRoleType.User, "nope") { SessionKey = session.Key };
+        result = await Service.Patch(msg.ToDelta(), Token);
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+
+        count = await Context.Message.CountAsync(p => p.SessionKey == session.Key, Token);
+        Assert.AreEqual(2, count);
     }
 
     [TestMethod]

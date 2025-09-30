@@ -5,13 +5,18 @@ namespace CoreOne.ModelPatch.Extensions;
 
 internal static class ModelContextExtensions
 {
-    public static DataList<ModelContext, Delta> GetChildren(this ModelContext context, Delta delta)
+    private static readonly Type ICollection = typeof(ICollection);
+    private static readonly Type ICollectionT = typeof(ICollection<>);
+
+    public static DataList<ModelContext, Delta> GetChildren(this ModelContext context, ModelOptions options, Delta delta)
     {
         var data = new DataList<ModelContext, Delta>();
-        var children = context.Properties.Where(p => p.Value.FPType.Implements(Types.CollectionT) && delta.ContainsKey(p.Key));
+        var keys = new HashSet<string>(delta.Keys, MStringComparer.OrdinalIgnoreCase);
+        var children = context.Properties.Where(p => keys.Contains(options.GetPreferredName(p.Value)) && IsCollectionType(p.Value.FPType));
         foreach (var child in children)
         {
-            var content = delta.Get(child.Key);
+            var name = options.GetPreferredName(child.Value);
+            var content = delta.Get(name, () => delta.FirstOrDefault(p => p.Key.Matches(child.Key)).Value);
             if (content is JArray array)
             {
                 var type = MetaType.GetUnderlyingType(child.Value.FPType);
@@ -89,4 +94,10 @@ internal static class ModelContextExtensions
 
         return new Result<Expression<Func<T, bool>>>(ResultType.Fail, $"{typeof(T).FullName} must have at least one Key property");
     }
+
+    private static bool IsCollectionType(Type? type) => type is not null && (
+            (type.IsGenericType && type.GetGenericTypeDefinition() == ICollectionT) // Direct match for generic ICollection<T>
+            || ICollection.IsAssignableFrom(type) // Implements non-generic ICollection
+            || type.GetInterfaces() // Implements ICollection<T>
+                .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == ICollectionT));
 }
