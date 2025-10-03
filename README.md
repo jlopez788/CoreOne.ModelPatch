@@ -85,7 +85,7 @@ var dataService = new DataModelService<YourContext>(IServiceProvider instance, y
 var result = await dataService.Patch(delta);
 ```
 
-This will update the `Name` and `Location.City` properties of the `User` entity.
+This will update the `Name` and `City` properties of the `User` entity. However, it will not update `OtherField` property
 
 ## 🧪 Sample API Endpoint
 
