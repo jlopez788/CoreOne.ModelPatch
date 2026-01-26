@@ -3,33 +3,33 @@
 namespace CoreOne.ModelPatch.Models;
 
 /// <summary>
-///
+/// Manages an EF Core transaction lifecycle with automatic rollback on disposal
 /// </summary>
 public sealed class TransactionState : IResult, IAsyncDisposable
 {
     private volatile bool _Disposed;
     private IDbContextTransaction? Transaction;
     /// <summary>
-    ///
+    /// Indicates if the transaction has been disposed (committed, rolled back, or errored)
     /// </summary>
     public bool IsDisposed => _Disposed;
     /// <summary>
-    ///
+    /// Error message if transaction creation or execution failed
     /// </summary>
     public string? Message { get; }
     /// <summary>
-    ///
+    /// Status of the transaction operation
     /// </summary>
     public ResultType ResultType { get; }
     /// <summary>
-    ///
+    /// Indicates if transaction was successfully created and is ready for use
     /// </summary>
     public bool Success { get; }
 
     /// <summary>
-    ///
+    /// Creates a successful transaction state
     /// </summary>
-    /// <param name="transaction"></param>
+    /// <param name="transaction">Active EF Core transaction</param>
     public TransactionState(IDbContextTransaction transaction)
     {
         Transaction = transaction;
@@ -38,9 +38,9 @@ public sealed class TransactionState : IResult, IAsyncDisposable
     }
 
     /// <summary>
-    ///
+    /// Creates a failed transaction state with error details
     /// </summary>
-    /// <param name="message"></param>
+    /// <param name="message">Error message explaining why transaction failed</param>
     public TransactionState(string message)
     {
         _Disposed = true;
@@ -50,9 +50,8 @@ public sealed class TransactionState : IResult, IAsyncDisposable
     }
 
     /// <summary>
-    ///
+    /// Commits all pending changes in the transaction
     /// </summary>
-    /// <returns></returns>
     public async Task Commit()
     {
         await Utility.SafeAwait(Transaction?.CommitAsync());
@@ -60,9 +59,8 @@ public sealed class TransactionState : IResult, IAsyncDisposable
     }
 
     /// <summary>
-    ///
+    /// Automatically rolls back transaction if not committed
     /// </summary>
-    /// <returns></returns>
     public async ValueTask DisposeAsync()
     {
         await Rollback();
@@ -70,9 +68,8 @@ public sealed class TransactionState : IResult, IAsyncDisposable
     }
 
     /// <summary>
-    ///
+    /// Discards all pending changes in the transaction
     /// </summary>
-    /// <returns></returns>
     public async Task Rollback()
     {
         await Utility.SafeAwait(Transaction?.RollbackAsync());

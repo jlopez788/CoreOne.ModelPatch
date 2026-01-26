@@ -161,7 +161,7 @@ public class BranchCoverageTests : Disposable
         var result = new Result<ProcessedModelCollection>(collection);
         
         var blogs = result.OfType<Blog>().ToList();
-        Assert.AreEqual(1, blogs.Count);
+        Assert.HasCount(1, blogs);
         Assert.AreEqual("Blog1", blogs[0].Name);
     }
 
@@ -176,7 +176,7 @@ public class BranchCoverageTests : Disposable
         var result = new Result<ProcessedModelCollection>(collection);
         
         var createdBlogs = result.OfType<Blog>(p => p.CrudType == CrudType.Created).ToList();
-        Assert.AreEqual(1, createdBlogs.Count);
+        Assert.HasCount(1, createdBlogs);
         Assert.AreEqual("Blog1", createdBlogs[0].Name);
     }
 
@@ -186,7 +186,7 @@ public class BranchCoverageTests : Disposable
         var result = Result.Fail<ProcessedModelCollection>("Error");
         
         var items = result.OfType<Blog>().ToList();
-        Assert.AreEqual(0, items.Count);
+        Assert.IsEmpty(items);
     }
 
     [TestMethod]
@@ -195,7 +195,7 @@ public class BranchCoverageTests : Disposable
         var result = new Result<ProcessedModelCollection>(new ProcessedModelCollection());
         
         var items = result.OfType<Blog>().ToList();
-        Assert.AreEqual(0, items.Count);
+        Assert.IsEmpty(items);
     }
 
     #endregion
@@ -335,8 +335,8 @@ public class BranchCoverageTests : Disposable
     public async Task Patch_DeltaCollection()
     {
         var blogs = new List<Blog> {
-            new Blog { BlogId = ID.Create(), Name = "Blog1" },
-            new Blog { BlogId = ID.Create(), Name = "Blog2" }
+            new() { BlogId = ID.Create(), Name = "Blog1" },
+            new() { BlogId = ID.Create(), Name = "Blog2" }
         };
         
         var deltaCollection = blogs.ToDeltaCollection();
@@ -366,7 +366,7 @@ public class BranchCoverageTests : Disposable
             .Include(s => s.Messages)
             .FirstOrDefaultAsync(Token);
         Assert.IsNotNull(savedSession);
-        Assert.AreEqual(2, savedSession.Messages.Count);
+        Assert.HasCount(2, savedSession.Messages);
     }
 
     [TestMethod]
@@ -400,7 +400,7 @@ public class BranchCoverageTests : Disposable
             .FirstOrDefaultAsync(s => s.Key == sessionId, Token);
         Assert.IsNotNull(saved);
         Assert.AreEqual("Updated Title", saved.Title);
-        Assert.AreEqual(2, saved.Messages.Count);
+        Assert.HasCount(2, saved.Messages);
     }
 
     [TestMethod]
@@ -500,7 +500,7 @@ public class BranchCoverageTests : Disposable
         var delta = nullBlog.ToDelta();
         
         Assert.IsNotNull(delta);
-        Assert.AreEqual(0, delta.Count);
+        Assert.IsEmpty(delta);
     }
 
     [TestMethod]
@@ -510,7 +510,7 @@ public class BranchCoverageTests : Disposable
         var deltaCollection = nullList.ToDeltaCollection();
         
         Assert.IsNotNull(deltaCollection);
-        Assert.AreEqual(0, deltaCollection.Count);
+        Assert.IsEmpty(deltaCollection);
     }
 
     [TestMethod]
@@ -520,21 +520,21 @@ public class BranchCoverageTests : Disposable
         var deltaCollection = emptyList.ToDeltaCollection();
         
         Assert.IsNotNull(deltaCollection);
-        Assert.AreEqual(0, deltaCollection.Count);
+        Assert.IsEmpty(deltaCollection);
     }
 
     [TestMethod]
     public void ToDeltaCollection_WithNullElements()
     {
         var listWithNulls = new List<Blog?> {
-            new Blog { Name = "Blog1" },
+            new() { Name = "Blog1" },
             null,
-            new Blog { Name = "Blog2" }
+            new() { Name = "Blog2" }
         };
         
         var deltaCollection = listWithNulls.ToDeltaCollection();
         
-        Assert.AreEqual(2, deltaCollection.Count);
+        Assert.HasCount(2, deltaCollection);
     }
 
     #endregion
@@ -558,13 +558,13 @@ public class BranchCoverageTests : Disposable
         var context = new ModelContext(typeof(Blog));
         var str = context.ToString();
         
-        Assert.IsTrue(str.Contains("Blog"));
+        Assert.Contains("Blog", str);
     }
 
     [TestMethod]
     public void ModelContext_WithLink()
     {
-        var parentKeys = new List<ModelKey> { new ModelKey("BlogId", true) };
+        var parentKeys = new List<ModelKey> { new("BlogId", true) };
         var link = new ModelLink(parentKeys, "MyBlogId");
         var context = new ModelContext(typeof(Post), link);
         
@@ -580,7 +580,7 @@ public class BranchCoverageTests : Disposable
         var context = new ModelContext(typeof(User));
         
         Assert.IsTrue(context.IsValid);
-        Assert.IsTrue(context.Keys.Count > 0);
+        Assert.IsGreaterThan(0, context.Keys.Count);
     }
 
     #endregion
@@ -632,7 +632,7 @@ public class BranchCoverageTests : Disposable
             list.Add(item);
         }
         
-        Assert.AreEqual(2, list.Count);
+        Assert.HasCount(2, list);
     }
 
     [TestMethod]
@@ -663,7 +663,7 @@ public class BranchCoverageTests : Disposable
         var context = new ModelContext(typeof(Blog));
         
         Assert.IsTrue(context.IsValid); // Should have keys
-        Assert.IsTrue(context.Keys.Count > 0);
+        Assert.IsGreaterThan(0, context.Keys.Count);
     }
 
     [TestMethod]
@@ -766,7 +766,7 @@ public class BranchCoverageTests : Disposable
             .FirstOrDefaultAsync(Token);
         
         Assert.IsNotNull(savedSession);
-        Assert.AreEqual(3, savedSession.Messages.Count);
+        Assert.HasCount(3, savedSession.Messages);
         Assert.AreEqual("Deep Test", savedSession.Title);
     }
 
@@ -807,7 +807,7 @@ public class BranchCoverageTests : Disposable
         var saved = await Context.Blogs.Include(b => b.Posts).FirstOrDefaultAsync(b => b.BlogId == blogId, Token);
         Assert.IsNotNull(saved);
         Assert.AreEqual("Updated Blog", saved.Name);
-        Assert.AreEqual(2, saved.Posts.Count);
+        Assert.HasCount(2, saved.Posts);
     }
 
     [TestMethod]

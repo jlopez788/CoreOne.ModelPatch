@@ -8,9 +8,9 @@ using System.Collections.Concurrent;
 namespace CoreOne.ModelPatch.Services;
 
 /// <summary>
-///
+/// Primary service for applying partial updates (PATCH operations) to EF Core entities with automatic relationship handling
 /// </summary>
-/// <typeparam name="TContext"></typeparam>
+/// <typeparam name="TContext">EF Core DbContext type containing the entities</typeparam>
 public class DataModelService<TContext> : BaseService where TContext : DbContext
 {
     private const BindingFlags Flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy;
@@ -21,18 +21,18 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
     private readonly Data<Type, object> Sets;
 
     /// <summary>
-    ///
+    /// Initializes the service with default options from DI container
     /// </summary>
-    /// <param name="services"></param>
-    /// <param name="context"></param>
+    /// <param name="services">Service provider for dependency injection</param>
+    /// <param name="context">EF Core database context</param>
     public DataModelService(IServiceProvider services, TContext context) : this(services, context, services.GetRequiredService<IOptions<ModelOptions>>()) { }
 
     /// <summary>
-    ///
+    /// Initializes the service with explicit configuration
     /// </summary>
-    /// <param name="services"></param>
-    /// <param name="context"></param>
-    /// <param name="options"></param>
+    /// <param name="services">Service provider for dependency injection</param>
+    /// <param name="context">EF Core database context</param>
+    /// <param name="options">Configuration for patch behavior</param>
     public DataModelService(IServiceProvider services, TContext context, IOptions<ModelOptions> options) : base(services)
     {
         var dbsets = MetaType.GetMetadatas(typeof(TContext), Flags);
@@ -43,24 +43,24 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
     }
 
     /// <summary>
-    ///
+    /// Applies a partial update to a single entity, processing nested relationships automatically
     /// </summary>
-    /// <typeparam name="T"></typeparam>
-    /// <param name="delta"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
+    /// <typeparam name="T">Entity type to patch</typeparam>
+    /// <param name="delta">Partial data containing only properties to update</param>
+    /// <param name="cancellationToken">Cancellation token for async operation</param>
+    /// <returns>Collection of all entities created or updated during the operation</returns>
     public Task<IResult<ProcessedModelCollection>> Patch<T>(Delta<T> delta, CancellationToken cancellationToken = default) where T : class, new()
     {
         return Process(() => ProcessUnknownModel(typeof(T), delta, new(), cancellationToken), cancellationToken);
     }
 
     /// <summary>
-    ///
+    /// Applies partial updates to multiple entities of the same type in a single transaction
     /// </summary>
-    /// <typeparam name="T"></typeparam>
-    /// <param name="items"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
+    /// <typeparam name="T">Entity type to patch</typeparam>
+    /// <param name="items">Collection of deltas to process</param>
+    /// <param name="cancellationToken">Cancellation token for async operation</param>
+    /// <returns>Collection of all entities created or updated during the operation</returns>
     public Task<IResult<ProcessedModelCollection>> Patch<T>(DeltaCollection<T> items, CancellationToken cancellationToken = default) where T : class, new()
     {
         var type = typeof(T);
@@ -71,11 +71,11 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
     }
 
     /// <summary>
-    ///
+    /// Applies partial updates to a heterogeneous collection of entities in a single transaction
     /// </summary>
-    /// <param name="items"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
+    /// <param name="items">Mixed collection of different entity types to patch</param>
+    /// <param name="cancellationToken">Cancellation token for async operation</param>
+    /// <returns>Collection of all entities created or updated during the operation</returns>
     public Task<IResult<ProcessedModelCollection>> PatchCollection(IEnumerable<object> items, CancellationToken cancellationToken = default)
     {
         var models = new ProcessedModelCollection();
