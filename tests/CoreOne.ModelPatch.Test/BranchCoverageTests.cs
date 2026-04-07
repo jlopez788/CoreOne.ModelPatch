@@ -2,12 +2,14 @@ using CoreOne.ModelPatch.Extensions;
 using CoreOne.ModelPatch.Models;
 using CoreOne.ModelPatch.Test.Data;
 using CoreOne.ModelPatch.Test.Models;
+using CoreOne.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace CoreOne.ModelPatch.Test;
 
@@ -55,11 +57,12 @@ public class BranchCoverageTests : Disposable
     [TestMethod]
     public void PatchResult_WithModelAndRows()
     {
-        var blog = new Blog { BlogId = ID.Create(), Name = "Test" };
+        var blog = new Blog { BlogId = ID.Create().AsGuid(), Name = "Test" };
         var result = new PatchResult<Blog>(blog, 5);
         
-        Assert.IsFalse(result.Success); // ResultType defaults to None
+        Assert.IsTrue(result.Success);
         Assert.IsNotNull(result.Model);
+        Assert.AreEqual(blog, result.Model);
         Assert.AreEqual(5, result.Rows);
         Assert.AreEqual(blog, result.Model);
     }
@@ -288,7 +291,7 @@ public class BranchCoverageTests : Disposable
     public async Task Patch_LocalEntityMatchWithoutDbMatch()
     {
         var blog = new Blog {
-            BlogId = ID.Create(),
+            BlogId = ID.Create().AsGuid(),
             Name = "Local Blog"
         };
         
@@ -306,8 +309,8 @@ public class BranchCoverageTests : Disposable
     public async Task PatchCollection_MixedModels()
     {
         var items = new List<object> {
-            new Blog { BlogId = ID.Create(), Name = "Blog1" },
-            new Post { PostId = ID.Create(), Title = "Post1", Content = "Content" }
+            new Blog { BlogId = ID.Create().AsGuid(), Name = "Blog1" },
+            new Post { PostId = ID.Create().AsGuid(), Title = "Post1", Content = "Content" }
         };
         
         var result = await Service.PatchCollection(items, Token);
@@ -320,9 +323,9 @@ public class BranchCoverageTests : Disposable
     public async Task PatchCollection_WithNulls()
     {
         var items = new List<object?> {
-            new Blog { BlogId = ID.Create(), Name = "Blog1" },
+            new Blog { BlogId = ID.Create().AsGuid(), Name = "Blog1" },
             null,
-            new Post { PostId = ID.Create(), Title = "Post1", Content = "Content" }
+            new Post { PostId = ID.Create().AsGuid(), Title = "Post1", Content = "Content" }
         };
         
         var result = await Service.PatchCollection(items!, Token);
@@ -335,8 +338,8 @@ public class BranchCoverageTests : Disposable
     public async Task Patch_DeltaCollection()
     {
         var blogs = new List<Blog> {
-            new() { BlogId = ID.Create(), Name = "Blog1" },
-            new() { BlogId = ID.Create(), Name = "Blog2" }
+            new() { BlogId = ID.Create().AsGuid(), Name = "Blog1" },
+            new() { BlogId = ID.Create().AsGuid(), Name = "Blog2" }
         };
         
         var deltaCollection = blogs.ToDeltaCollection();
@@ -373,7 +376,7 @@ public class BranchCoverageTests : Disposable
     public async Task Patch_UpdateExistingWithChildren()
     {
         // Create initial session
-        var sessionId = ID.Create();
+        var sessionId = ID.Create().AsGuid();
         var session = new ChatSession("Original Title") {
             Key = sessionId,
             Messages = [
@@ -419,7 +422,7 @@ public class BranchCoverageTests : Disposable
     public async Task Patch_InvalidModelWithChildValidationFailure()
     {
         var blog = new Blog {
-            BlogId = ID.Create(),
+            BlogId = ID.Create().AsGuid(),
             Name = "This is a very long name that exceeds the maximum length allowed by the validation attributes" // > 50 chars
         };
         
@@ -438,7 +441,7 @@ public class BranchCoverageTests : Disposable
     {
         // Test composite key scenarios if any exist
         var blog = new Blog {
-            BlogId = ID.Create(),
+            BlogId = ID.Create().AsGuid(),
             Name = "Test"
         };
         
@@ -451,7 +454,7 @@ public class BranchCoverageTests : Disposable
     [TestMethod]
     public async Task Patch_UpdateNonPrimaryKeyFields()
     {
-        var blogId = ID.Create();
+        var blogId = ID.Create().AsGuid();
         var blog = new Blog {
             BlogId = blogId,
             Name = "Original Name",
@@ -537,7 +540,80 @@ public class BranchCoverageTests : Disposable
         Assert.HasCount(2, deltaCollection);
     }
 
+            [TestMethod]
+            public void ToDelta_TargetEntity_WithIncludedPropertyNames()
+            {
+                var dto = new BlogPatchDto {
+                    BlogId = ID.Create().AsGuid(),
+                    Name = "Filtered",
+                    Url = "filtered.com",
+                    Extra = "ignored"
+                };
+
+                var delta = dto.ToDelta<Blog>(nameof(Blog.BlogId), nameof(Blog.Name));
+
+                Assert.AreEqual(2, delta.Count);
+                Assert.IsTrue(delta.ContainsKey(nameof(Blog.BlogId)));
+                Assert.IsTrue(delta.ContainsKey(nameof(Blog.Name)));
+                Assert.IsFalse(delta.ContainsKey(nameof(Blog.Url)));
+                Assert.IsFalse(delta.ContainsKey(nameof(BlogPatchDto.Extra)));
+            }
+
+            [TestMethod]
+            public void ToDelta_TargetEntity_WithIncludedExpressions()
+            {
+                var dto = new BlogPatchDto {
+                    BlogId = ID.Create().AsGuid(),
+                    Name = "Filtered",
+                    Url = "filtered.com"
+                };
+
+                var delta = dto.ToDelta<Blog>(p => p.BlogId, p => p.Url);
+
+                Assert.AreEqual(2, delta.Count);
+                Assert.IsTrue(delta.ContainsKey(nameof(Blog.BlogId)));
+                Assert.IsTrue(delta.ContainsKey(nameof(Blog.Url)));
+                Assert.IsFalse(delta.ContainsKey(nameof(Blog.Name)));
+            }
+
     #endregion
+
+            #region ModelOptions Json Helpers Tests
+
+            [TestMethod]
+            public void ModelOptions_UseNewtonsoftJsonPropertyNames()
+            {
+                var options = new ModelOptions().UseNewtonsoftJsonPropertyNames();
+                var metadata = MetaType.GetMetadatas(typeof(Tag)).First(p => p.Name == nameof(Tag.Name));
+
+                var name = options.NameResolver?.Invoke(metadata);
+                Assert.AreEqual("name_one", name);
+            }
+
+            [TestMethod]
+            public void ModelOptions_UseSystemTextJsonPropertyNames()
+            {
+                var options = new ModelOptions().UseSystemTextJsonPropertyNames();
+                var metadata = MetaType.GetMetadatas(typeof(SystemTextJsonPatchDto)).First(p => p.Name == nameof(SystemTextJsonPatchDto.DisplayName));
+
+                var name = options.NameResolver?.Invoke(metadata);
+                Assert.AreEqual("display_name", name);
+            }
+
+            [TestMethod]
+            public void ModelOptions_UseJsonPropertyNames_FallsBackToExistingResolver()
+            {
+                var options = new ModelOptions {
+                    NameResolver = meta => $"mapped_{meta.Name}"
+                }.UseJsonPropertyNames();
+                var attributed = MetaType.GetMetadatas(typeof(SystemTextJsonPatchDto)).First(p => p.Name == nameof(SystemTextJsonPatchDto.DisplayName));
+                var plain = MetaType.GetMetadatas(typeof(SystemTextJsonPatchDto)).First(p => p.Name == nameof(SystemTextJsonPatchDto.PlainName));
+
+                Assert.AreEqual("display_name", options.NameResolver?.Invoke(attributed));
+                Assert.AreEqual("mapped_PlainName", options.NameResolver?.Invoke(plain));
+            }
+
+            #endregion
 
     #region ModelContext Deep Tests
 
@@ -670,11 +746,11 @@ public class BranchCoverageTests : Disposable
     public async Task ModelContextExtensions_GetChildren_WithInverseProperty()
     {
         var blog = new Blog {
-            BlogId = ID.Create(),
+            BlogId = ID.Create().AsGuid(),
             Name = "Test Blog",
             Posts = [
-                new Post { PostId = ID.Create(), Title = "Post 1", Content = "Content 1" },
-                new Post { PostId = ID.Create(), Title = "Post 2", Content = "Content 2" }
+                new Post { PostId = ID.Create().AsGuid(), Title = "Post 1", Content = "Content 1" },
+                new Post { PostId = ID.Create().AsGuid(), Title = "Post 2", Content = "Content 2" }
             ]
         };
         
@@ -691,8 +767,8 @@ public class BranchCoverageTests : Disposable
     public async Task Patch_CompositeKeyScenario()
     {
         // Test with Tag which has both primary key and unique index
-        var tag1 = new Tag { Id = ID.Create(), Name = "tag1" };
-        var tag2 = new Tag { Id = ID.Create(), Name = "tag1" }; // Same name, different ID
+        var tag1 = new Tag { Id = ID.Create().AsGuid(), Name = "tag1" };
+        var tag2 = new Tag { Id = ID.Create().AsGuid(), Name = "tag1" }; // Same name, different ID
         
         var result1 = await Service.Patch(tag1.ToDelta(), Token);
         Assert.AreEqual(ResultType.Success, result1.ResultType);
@@ -711,7 +787,7 @@ public class BranchCoverageTests : Disposable
     public async Task Patch_MultipleUniqueIndexes()
     {
         var blog1 = new Blog {
-            BlogId = ID.Create(),
+            BlogId = ID.Create().AsGuid(),
             Name = "Blog1",
             Tags = [
                 new Tag("unique1"),
@@ -725,7 +801,7 @@ public class BranchCoverageTests : Disposable
         
         // Try to add blog with some duplicate tags
         var blog2 = new Blog {
-            BlogId = ID.Create(),
+            BlogId = ID.Create().AsGuid(),
             Name = "Blog2",
             Tags = [
                 new Tag("unique1"), // Duplicate - should update
@@ -773,8 +849,8 @@ public class BranchCoverageTests : Disposable
     [TestMethod]
     public async Task Patch_UpdateExistingAndAddNew()
     {
-        var blogId = ID.Create();
-        var postId = ID.Create();
+        var blogId = ID.Create().AsGuid();
+        var postId = ID.Create().AsGuid();
         
         // Create initial blog with one post
         var blog = new Blog {
@@ -793,7 +869,7 @@ public class BranchCoverageTests : Disposable
             Name = "Updated Blog",
             Posts = [
                 new Post { PostId = postId, Title = "Updated Post", Content = "Updated Content" },
-                new Post { PostId = ID.Create(), Title = "New Post", Content = "New Content" }
+                new Post { PostId = ID.Create().AsGuid(), Title = "New Post", Content = "New Content" }
             ]
         };
         
@@ -814,7 +890,7 @@ public class BranchCoverageTests : Disposable
     public async Task Patch_EmptyChildCollection()
     {
         var blog = new Blog {
-            BlogId = ID.Create(),
+            BlogId = ID.Create().AsGuid(),
             Name = "Blog with empty collections",
             Posts = [],
             Tags = []
@@ -846,7 +922,7 @@ public class BranchCoverageTests : Disposable
     public void Delta_MultiplePropertyFormats()
     {
         var delta = new Delta<Blog> {
-            ["blogid"] = ID.Create(),
+            ["blogid"] = ID.Create().AsGuid(),
             ["Name"] = "Test",
             ["URL"] = "test.com"
         };
@@ -860,7 +936,7 @@ public class BranchCoverageTests : Disposable
     [TestMethod]
     public async Task Patch_PartialPropertyUpdate()
     {
-        var blogId = ID.Create();
+        var blogId = ID.Create().AsGuid();
         
         // Create blog
         var blog = new Blog {
@@ -888,7 +964,7 @@ public class BranchCoverageTests : Disposable
     public async Task Patch_PropertyWithDefaultValue()
     {
         var user = new User {
-            Id = ID.Create(),
+            Id = ID.Create().AsGuid(),
             Status = UserStatus.New // Default enum value
         };
         
@@ -898,6 +974,183 @@ public class BranchCoverageTests : Disposable
         var saved = await Context.Users.FirstOrDefaultAsync(u => u.Id == user.Id, Token);
         Assert.IsNotNull(saved);
         Assert.AreEqual(UserStatus.New, saved.Status);
+    }
+
+    [TestMethod]
+    public async Task Patch_DirectModelOverload_ReturnsRichResult()
+    {
+        var blog = new Blog {
+            BlogId = ID.Create().AsGuid(),
+            Name = "Direct Patch"
+        };
+
+        var result = await Service.Patch(blog, Token);
+
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+        Assert.AreEqual(1, result.Created);
+        Assert.AreEqual(0, result.Updated);
+        Assert.IsNotNull(result.Items);
+        Assert.AreEqual(1, result.Items.Count);
+        Assert.AreEqual("Direct Patch", result.Get<Blog>().Single().Name);
+    }
+
+    [TestMethod]
+    public async Task Patch_DirectModelOverload_WithConfigure()
+    {
+        var blogId = ID.Create().AsGuid();
+        await Service.Patch(new Blog {
+            BlogId = blogId,
+            Name = "Original",
+            Url = "original.com"
+        }, Token);
+
+        var result = await Service.Patch(new Blog {
+            BlogId = blogId,
+            Name = "Changed",
+            Url = "updated.com"
+        }, delta => delta.Remove(nameof(Blog.Name)), Token);
+
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+        Assert.AreEqual(1, result.Updated);
+
+        var saved = await Context.Blogs.FirstOrDefaultAsync(p => p.BlogId == blogId, Token);
+        Assert.IsNotNull(saved);
+        Assert.AreEqual("Original", saved.Name);
+        Assert.AreEqual("updated.com", saved.Url);
+    }
+
+    [TestMethod]
+    public async Task Patch_DirectCollectionOverload()
+    {
+        var result = await Service.Patch([
+            new Tag("direct-1") { Id = ID.Create().AsGuid() },
+            new Tag("direct-2") { Id = ID.Create().AsGuid() }
+        ], Token);
+
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+        Assert.AreEqual(2, result.Created);
+        Assert.AreEqual(2, result.Get<Tag>().Count());
+    }
+
+    [TestMethod]
+    public async Task Patch_DtoOverload_WithEntityTarget()
+    {
+        var dto = new BlogPatchDto {
+            BlogId = ID.Create().AsGuid(),
+            Name = "Dto Blog",
+            Url = "dto.com"
+        };
+
+        var result = await Service.Patch<Blog, BlogPatchDto>(dto, Token);
+
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+        Assert.AreEqual(1, result.Created);
+        var saved = await Context.Blogs.FirstOrDefaultAsync(p => p.BlogId == dto.BlogId, Token);
+        Assert.IsNotNull(saved);
+        Assert.AreEqual("Dto Blog", saved.Name);
+        Assert.AreEqual("dto.com", saved.Url);
+    }
+
+    [TestMethod]
+    public async Task Patch_DtoOverload_WithIncludedProperties()
+    {
+        var id = ID.Create().AsGuid();
+        await Service.Patch(new Blog { BlogId = id, Name = "Original", Url = "original.com" }, Token);
+
+        var dto = new BlogPatchDto {
+            BlogId = id,
+            Name = "ShouldNotChange",
+            Url = "updated.com"
+        };
+
+        var result = await Service.Patch<Blog, BlogPatchDto>(dto, [p => p.BlogId, p => p.Url], Token);
+
+        Assert.AreEqual(ResultType.Success, result.ResultType);
+        var saved = await Context.Blogs.FirstOrDefaultAsync(p => p.BlogId == id, Token);
+        Assert.IsNotNull(saved);
+        Assert.AreEqual("Original", saved.Name);
+        Assert.AreEqual("updated.com", saved.Url);
+    }
+
+    [TestMethod]
+    public async Task Patch_StrictPropertyMatching_UnknownFieldFails()
+    {
+        Options.Value.StrictPropertyMatching = true;
+        var delta = new Delta<Blog> {
+            [nameof(Blog.BlogId)] = ID.Create().AsGuid(),
+            [nameof(Blog.Name)] = "strict",
+            ["does_not_exist"] = "x"
+        };
+
+        var result = await Service.Patch(delta, Token);
+
+        Assert.AreEqual(ResultType.Fail, result.ResultType);
+        Assert.IsNotNull(result.Message);
+        Assert.Contains("does_not_exist", result.Message);
+    }
+
+    [TestMethod]
+    public async Task Patch_ConcurrencyTokenMismatch_Fails()
+    {
+        var id = ID.Create().AsGuid();
+        var version = new byte[] { 1, 2, 3 };
+        await Service.Patch(new VersionedBlog {
+            Id = id,
+            Name = "v1",
+            RowVersion = version
+        }, Token);
+
+        var staleDelta = new Delta<VersionedBlog> {
+            [nameof(VersionedBlog.Id)] = id,
+            [nameof(VersionedBlog.Name)] = "v2",
+            [nameof(VersionedBlog.RowVersion)] = Convert.ToBase64String(new byte[] { 9, 9, 9 })
+        };
+
+        var result = await Service.Patch(staleDelta, Token);
+
+        Assert.AreEqual(ResultType.Fail, result.ResultType);
+        Assert.IsNotNull(result.Message);
+        Assert.Contains(nameof(VersionedBlog.RowVersion), result.Message);
+    }
+
+    [TestMethod]
+    public async Task Patch_RequireConcurrencyTokenForUpdate_FailsWhenMissing()
+    {
+        Options.Value.RequireConcurrencyTokenForUpdates = true;
+
+        var id = ID.Create().AsGuid();
+        await Service.Patch(new VersionedBlog {
+            Id = id,
+            Name = "v1",
+            RowVersion = [1, 2, 3]
+        }, Token);
+
+        var missingTokenDelta = new Delta<VersionedBlog> {
+            [nameof(VersionedBlog.Id)] = id,
+            [nameof(VersionedBlog.Name)] = "v2"
+        };
+
+        var result = await Service.Patch(missingTokenDelta, Token);
+
+        Assert.AreEqual(ResultType.Fail, result.ResultType);
+        Assert.IsNotNull(result.Message);
+        Assert.Contains("Concurrency token is required", result.Message);
+    }
+
+    [TestMethod]
+    public void ServiceCollectionExtensions_AddModelPatch_RegistersOptionsAndService()
+    {
+        var services = new ServiceCollection()
+            .AddLogging()
+            .AddSingleton(CreateContext())
+            .AddModelPatch(options => options.StrictPropertyMatching = true)
+            .BuildServiceProvider();
+
+        var service = services.GetRequiredService<DataModelService<TestDbContext>>();
+        var options = services.GetRequiredService<IOptions<ModelOptions>>();
+
+        Assert.IsNotNull(service);
+        Assert.IsTrue(options.Value.StrictPropertyMatching);
     }
 
     #endregion
@@ -918,5 +1171,21 @@ public class BranchCoverageTests : Disposable
         var context = new TestDbContext(options);
         context.Database.EnsureCreated();
         return context;
+    }
+
+    private sealed class BlogPatchDto
+    {
+        public Guid BlogId { get; set; }
+        public string? Name { get; set; }
+        public string? Url { get; set; }
+        public string? Extra { get; set; }
+    }
+
+    private sealed class SystemTextJsonPatchDto
+    {
+        [JsonPropertyName("display_name")]
+        public string? DisplayName { get; set; }
+
+        public string? PlainName { get; set; }
     }
 }

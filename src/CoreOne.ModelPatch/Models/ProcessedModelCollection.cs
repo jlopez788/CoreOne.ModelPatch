@@ -6,12 +6,10 @@
 public class ProcessedModelCollection : IReadOnlyList<ModelState>
 {
     private readonly List<ModelState> States = [];
-
     /// <summary>
     /// Total number of processed entities
     /// </summary>
     public int Count => States.Count;
-
     /// <summary>
     /// Accesses a processed entity by index
     /// </summary>

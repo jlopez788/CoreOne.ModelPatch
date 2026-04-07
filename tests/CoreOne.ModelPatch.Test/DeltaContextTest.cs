@@ -38,7 +38,7 @@ public class DeltaContextTest : Disposable
     public async Task InserModelWithUniqueChild()
     {
         var blog = new Blog {
-            BlogId = ID.Create(),
+            BlogId = ID.Create().AsGuid(),
             Name = "Unit1",
             Tags = [
                 new Tag("tag1"),
@@ -62,17 +62,16 @@ public class DeltaContextTest : Disposable
         delta.Remove(nameof(Blog.Name));
         result = await Service.Patch(delta, Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
-#warning Finish test
         // Assert.AreEqual(blog.Name, result.Model?.Name);
     }
 
     [TestMethod]
     public async Task InsertParentChild()
     {
-        var post1 = new Post { PostId = ID.Create(), Content = "Content", Title = "First Post" };
-        var post2 = new Post { PostId = ID.Create(), Content = "Content", Title = "Second Post" };
+        var post1 = new Post { PostId = ID.Create().AsGuid(), Content = "Content", Title = "First Post" };
+        var post2 = new Post { PostId = ID.Create().AsGuid(), Content = "Content", Title = "Second Post" };
         var blog = new Blog {
-            BlogId = ID.Create(),
+            BlogId = ID.Create().AsGuid(),
             Name = "Unit1",
             Posts = [post1, post2]
         };
@@ -110,9 +109,9 @@ public class DeltaContextTest : Disposable
     [TestMethod]
     public async Task TestCollection()
     {
-        var tag = new Tag("tag1") { Id = ID.Create() };
+        var tag = new Tag("tag1") { Id = ID.Create().AsGuid() };
         var tags = new List<Tag>() {
-            new("tag1"){ Id = ID.Create() },
+            new("tag1"){ Id = ID.Create().AsGuid() },
             new("tag2"),
             new("tag3")
         };
@@ -123,7 +122,7 @@ public class DeltaContextTest : Disposable
         var resultCollection = await Service.Patch(tags.ToDeltaCollection(), Token);
         Assert.AreEqual(ResultType.Success, resultCollection.ResultType);
 
-        var patched = resultCollection.Model;
+        var patched = resultCollection.Items;
         Assert.IsNotNull(patched);
         Assert.HasCount(3, patched);
 
@@ -134,7 +133,7 @@ public class DeltaContextTest : Disposable
     [TestMethod]
     public async Task TestInsert()
     {
-        Guid id = ID.Create();
+        Guid id = ID.Create().AsGuid();
         var delta = new Delta<Blog> {
             [nameof(Blog.BlogId).ToLower()] = id,
             [nameof(Blog.Url).ToLower()] = "myblog.com",
@@ -143,7 +142,7 @@ public class DeltaContextTest : Disposable
 
         var result = await Service.Patch(delta, Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
-        var first = result.OfType<Blog>().FirstOrDefault();
+        var first = result.Get<Blog>().FirstOrDefault();
         Assert.AreEqual(id, first?.BlogId);
 
         var count = await Context.Blogs.CountAsync(Token);
@@ -157,7 +156,7 @@ public class DeltaContextTest : Disposable
     public async Task TestInsertIndex()
     {
         var blog = new Blog {
-            BlogId = ID.Create(),
+            BlogId = ID.Create().AsGuid(),
             Name = "my blog",
             Tags = [
                 new Tag("tag1"),
@@ -167,14 +166,14 @@ public class DeltaContextTest : Disposable
 
         var result = await Service.Patch(blog.ToDelta(), Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
-        Assert.AreEqual(3, result.Model?.Count(p => p.CrudType == CrudType.Created));
-        Assert.AreEqual(0, result.Model?.Count(p => p.CrudType == CrudType.Updated));
+        Assert.AreEqual(3, result.Items?.Count(p => p.CrudType == CrudType.Created));
+        Assert.AreEqual(0, result.Items?.Count(p => p.CrudType == CrudType.Updated));
 
         var count = await Context.Tags.CountAsync(Token);
         Assert.AreEqual(2, count);
 
         blog = new Blog {
-            BlogId = ID.Create(),
+            BlogId = ID.Create().AsGuid(),
             Name = "another blog",
             Tags = [
                 new Tag("tag1"),
@@ -192,7 +191,7 @@ public class DeltaContextTest : Disposable
     [TestMethod]
     public async Task TestUniqueIndeces()
     {
-        var tag = new Tag { Id = ID.Create(), Name = "tag" };
+        var tag = new Tag { Id = ID.Create().AsGuid(), Name = "tag" };
         var result = await Service.Patch(tag.ToDelta(), Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
     }
@@ -200,8 +199,8 @@ public class DeltaContextTest : Disposable
     [TestMethod]
     public async Task TestUniqueIndeces2()
     {
-        var tag = new Tag { Id = ID.Create(), Name = "tag" };
-        var tag2 = new Tag { Id = ID.Create(), Name = "tag" };
+        var tag = new Tag { Id = ID.Create().AsGuid(), Name = "tag" };
+        var tag2 = new Tag { Id = ID.Create().AsGuid(), Name = "tag" };
 
         var result = await Service.Patch(tag.ToDelta(), Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
@@ -210,17 +209,17 @@ public class DeltaContextTest : Disposable
 
         result = await Service.Patch(tag2.ToDelta(), Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
-        Assert.IsNotNull(result?.Model);
+        Assert.IsNotNull(result?.Items);
         Assert.AreEqual(0, result.Count(p => p.CrudType == CrudType.Created));
         Assert.AreEqual(1, result.Count(p => p.CrudType == CrudType.Updated));
 
         var count = await Context.Tags.CountAsync(Token);
         Assert.AreEqual(1, count);
 
-        var tag3 = new Tag { Id = ID.Create(), Name = "tag2" };
+        var tag3 = new Tag { Id = ID.Create().AsGuid(), Name = "tag2" };
         result = await Service.Patch(tag3.ToDelta(), Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
-        Assert.IsNotNull(result?.Model);
+        Assert.IsNotNull(result?.Items);
 
         count = await Context.Tags.CountAsync(Token);
         Assert.AreEqual(2, count);
@@ -229,7 +228,7 @@ public class DeltaContextTest : Disposable
     [TestMethod]
     public async Task TestUpdateEnumAsString()
     {
-        var id = ID.Create();
+        var id = ID.Create().AsGuid();
         var result = await Service.Patch(new User { Id = id, Status = UserStatus.New }.ToDelta(), Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
 
@@ -246,7 +245,7 @@ public class DeltaContextTest : Disposable
     {
         var newName = "Unit2";
         var blog = new Blog {
-            BlogId = ID.Create(),
+            BlogId = ID.Create().AsGuid(),
             Name = "Unit1"
         };
         var delta = new Delta<Blog> {

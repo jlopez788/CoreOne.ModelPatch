@@ -10,6 +10,10 @@ public class ModelContext
     private readonly int Code;
     private readonly string Name;
     /// <summary>
+    /// Concurrency token properties discovered via <see cref="TimestampAttribute"/> or <see cref="ConcurrencyCheckAttribute"/>
+    /// </summary>
+    public IReadOnlyList<Metadata> ConcurrencyTokens { get; }
+    /// <summary>
     /// Indicates whether the entity has valid key properties for identification
     /// </summary>
     public bool IsValid { get; }
@@ -45,6 +49,9 @@ public class ModelContext
         Link = link;
         Code = (Type, Link).GetHashCode();
         Properties = properties.ToDictionary();
+        ConcurrencyTokens = properties
+            .Where(p => p.GetCustomAttribute<TimestampAttribute>() is not null || p.GetCustomAttribute<ConcurrencyCheckAttribute>() is not null)
+            .ToList();
         var pKey = properties.Where(p => p.GetCustomAttribute<KeyAttribute>() is not null)
             .Select(p => new ModelKey(p.Name, true))
             .ToList();

@@ -12,6 +12,7 @@ public class TestDbContext(DbContextOptions options) : DbContext(options)
     public DbSet<ChatSession> Session { get; set; }
     public DbSet<Tag> Tags { get; set; }
     public DbSet<User> Users { get; set; }
+    public DbSet<VersionedBlog> VersionedBlogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -11,3 +11,8 @@ public interface IKeyGenerator
     /// <returns>New GUID primary key value</returns>
     Guid Create();
 }
+
+public interface IReadOnlyCollectionResult<TModel> : IResult
+{
+    IReadOnlyCollection<TModel>? Items { get; }
+}

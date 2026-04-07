@@ -25,6 +25,19 @@ public class ModelOptions
     public Func<Metadata, string>? NameResolver { get; set; }
 
     /// <summary>
+    /// Enforces strict delta key matching so unknown fields fail fast instead of being ignored
+    /// </summary>
+    public bool StrictPropertyMatching { get; set; }
+    /// <summary>
+    /// Validates provided concurrency token values on updates to detect stale writes
+    /// </summary>
+    public bool ValidateConcurrencyTokens { get; set; } = true;
+    /// <summary>
+    /// Requires at least one concurrency token in update deltas when concurrency tokens are configured on the model
+    /// </summary>
+    public bool RequireConcurrencyTokenForUpdates { get; set; }
+
+    /// <summary>
     /// Initializes options with default configuration
     /// </summary>
     public ModelOptions()
