@@ -16,7 +16,7 @@ Perfect for RESTful APIs, microservices, and any scenario requiring partial enti
 - **Custom Property Name Mapping** - Support custom property name resolution through `ModelOptions.NameResolver`
 - **Strict Field Validation (Optional)** - Fail fast on unknown delta fields to catch typos early
 - **Optimistic Concurrency (Optional)** - Validate `[Timestamp]` and `[ConcurrencyCheck]` tokens during updates
-- **Automatic GUID Generation** - Generates primary keys when missing
+- **Automatic Key Generation** - Generates primary keys when missing (GUID by default, extensible via `IKeyGenerator`)
 - **Type-Safe Delta Operations** - Strongly-typed `Delta<T>` with compile-time safety
 - **DTO-Friendly Delta Mapping** - Map request DTOs into `Delta<TEntity>` with explicit field selection
 - **Rich Patch Results** - `PatchResult` exposes `Created`, `Updated`, `Unchanged`, `Items`, and `Get<T>()`
@@ -60,9 +60,9 @@ services.AddModelPatch(options => {
 ```csharp
 public class YourController : ControllerBase
 {
-    private readonly DataModelService<YourDbContext> _dataService;
+    private readonly IDataModelService<YourDbContext> _dataService;
 
-    public YourController(DataModelService<YourDbContext> dataService)
+    public YourController(IDataModelService<YourDbContext> dataService)
     {
         _dataService = dataService;
     }
@@ -90,7 +90,6 @@ var userUpdate = new User {
     Id = existingUserId,
     Name = "John Doe",
     Email = "john@example.com"
-    // PhoneNumber is not set, so it won't be updated
 };
 
 // Apply the patch directly and optionally exclude fields from the generated delta
@@ -214,6 +213,13 @@ var result = await _dataService.Patch(delta, cancellationToken);
 
 // Or patch DTO directly with target entity type
 var directResult = await _dataService.Patch<Blog, UpdateBlogRequest>(request, cancellationToken);
+
+// Note: direct DTO patch maps DTO fields into a delta by matching names.
+// Use the explicit include-list overload when you want strict field allow-listing.
+var safeResult = await _dataService.Patch<Blog, UpdateBlogRequest>(
+    request,
+    [p => p.BlogId, p => p.Name, p => p.Url],
+    cancellationToken);
 ```
 
 ### Optimistic Concurrency Example
@@ -252,9 +258,9 @@ var result = await _dataService.Patch(delta, cancellationToken);
 [Route("api/[controller]")]
 public class BlogsController : ControllerBase
 {
-    private readonly DataModelService<AppDbContext> _dataService;
+    private readonly IDataModelService<AppDbContext> _dataService;
 
-    public BlogsController(DataModelService<AppDbContext> dataService)
+    public BlogsController(IDataModelService<AppDbContext> dataService)
     {
         _dataService = dataService;
     }
@@ -365,6 +371,15 @@ var delta = new Delta<Tag> {
 
 You can still provide a custom `NameResolver` when you need non-attribute-based naming.
 
+### Default Options
+
+`ModelOptions` defaults are:
+
+- `StrictPropertyMatching = false`
+- `ValidateConcurrencyTokens = true`
+- `RequireConcurrencyTokenForUpdates = false`
+- `KeyGenerator = GuidGenerator` (creates version 7 GUID keys wrapped in `KeyModel`)
+
 ### Strict Field Validation
 
 ```csharp
@@ -399,13 +414,33 @@ Implement `IKeyGenerator` for custom primary key generation:
 ```csharp
 public class CustomKeyGenerator : IKeyGenerator
 {
-    public Guid Create() => Guid.CreateVersion7();
+    public KeyModel Create() => KeyModel.Create(Guid.CreateVersion7());
 }
 
 services.Configure<ModelOptions>(options => {
     options.KeyGenerator = new CustomKeyGenerator();
 });
 ```
+
+### Strongly Typed IDs (`ICoreId<T>`)
+
+`AddModelPatch(...)` also registers an open generic `IKeyGenerator<TKey>` implementation (`StronglyTypedIdGenerator<TKey>`), which can be used for strongly typed IDs backed by GUID values.
+
+```csharp
+[StronglyTypedId<Guid>]
+public readonly partial struct NoteId : ICoreId<NoteId>
+{
+}
+
+// Example custom generator for NoteId
+public sealed class NoteIdKeyGenerator : IKeyGenerator<NoteId>
+{
+    public KeyModel Create() => KeyModel.Create(NoteId.Create());
+}
+```
+
+For runtime patching, the built-in primary-key auto-generation path currently targets `Guid`/`Guid?` key properties.
+For other key property types, include the key value in the incoming delta/model payload or provide a custom patch pipeline.
 
 ## 🎯 How It Works
 
@@ -477,54 +512,101 @@ public class Post
 
 ## 📋 API Reference
 
-### DataModelService<TContext>
+### IDataModelService<TContext>
 
-Main service for processing patches.
+Main service contract for processing patches.
 
-#### Methods
+#### Interface Methods
 
 ```csharp
-// Patch a single model
+// Patch a single typed delta
 Task<PatchResult> Patch<T>(
     Delta<T> delta, 
     CancellationToken cancellationToken = default) where T : class, new()
-
-// Patch a single model directly
-Task<PatchResult> Patch<T>(
-    T model,
-    CancellationToken cancellationToken = default) where T : class, new()
-
-// Patch a single model directly and customize the generated delta
-Task<PatchResult> Patch<T>(
-    T model,
-    Action<Delta<T>> configure,
-    CancellationToken cancellationToken = default) where T : class, new()
-
-// Patch a DTO directly into a target entity
-Task<PatchResult> Patch<TEntity, TDto>(
-    TDto dto,
-    CancellationToken cancellationToken = default) where TEntity : class, new()
-
-// Patch a DTO directly with an explicit target field list
-Task<PatchResult> Patch<TEntity, TDto>(
-    TDto dto,
-    IEnumerable<Expression<Func<TEntity, object?>>> includedProperties,
-    CancellationToken cancellationToken = default) where TEntity : class, new()
 
 // Patch multiple deltas of the same type
 Task<PatchResult> Patch<T>(
     DeltaCollection<T> items, 
     CancellationToken cancellationToken = default) where T : class, new()
 
-// Patch multiple models of the same type directly
-Task<PatchResult> Patch<T>(
-    IEnumerable<T?> items,
-    CancellationToken cancellationToken = default) where T : class, new()
-
 // Patch mixed model types
 Task<PatchResult> PatchCollection(
     IEnumerable<object?> items, 
     CancellationToken cancellationToken = default)
+```
+
+#### Extension Patch Methods
+
+The following overloads are extension methods on `IDataModelService<TContext>` (from `DataModelServiceExtensions`):
+
+```csharp
+// Patch a single model directly
+Task<PatchResult> Patch<TContext, TModel>(
+    this IDataModelService<TContext> service,
+    TModel model,
+    CancellationToken cancellationToken = default)
+    where TContext : DbContext where TModel : class, new()
+
+// Patch a single model directly and customize generated delta
+Task<PatchResult> Patch<TContext, TModel>(
+    this IDataModelService<TContext> service,
+    TModel model,
+    Action<Delta<TModel>> configure,
+    CancellationToken cancellationToken = default)
+    where TContext : DbContext where TModel : class, new()
+
+// Patch a DTO into a target entity
+Task<PatchResult> Patch<TContext, TEntity, TDto>(
+    this IDataModelService<TContext> service,
+    TDto? dto,
+    CancellationToken cancellationToken = default)
+    where TContext : DbContext where TEntity : class, new()
+
+// Patch DTO with delta customization callback
+Task<PatchResult> Patch<TContext, TEntity, TDto>(
+    this IDataModelService<TContext> service,
+    TDto? dto,
+    Action<Delta<TEntity>> configure,
+    CancellationToken cancellationToken = default)
+    where TContext : DbContext where TEntity : class, new()
+
+// Patch DTO with explicit included entity properties
+Task<PatchResult> Patch<TContext, TEntity, TDto>(
+    this IDataModelService<TContext> service,
+    TDto? dto,
+    IEnumerable<Expression<Func<TEntity, object?>>> includedProperties,
+    CancellationToken cancellationToken = default)
+    where TContext : DbContext where TEntity : class, new()
+
+// Patch a collection of model instances directly
+Task<PatchResult> Patch<TContext, TModel>(
+    this IDataModelService<TContext> service,
+    IEnumerable<TModel?> items,
+    CancellationToken cancellationToken = default)
+    where TContext : DbContext where TModel : class, new()
+
+// Patch a collection of model instances directly with delta customization
+Task<PatchResult> Patch<TContext, TModel>(
+    this IDataModelService<TContext> service,
+    IEnumerable<TModel?> items,
+    Action<Delta<TModel>> configure,
+    CancellationToken cancellationToken = default)
+    where TContext : DbContext where TModel : class, new()
+
+// Patch a collection of DTO payloads
+Task<PatchResult> Patch<TContext, TEntity, TDto>(
+    this IDataModelService<TContext> service,
+    IEnumerable<TDto?> items,
+    CancellationToken cancellationToken = default)
+    where TContext : DbContext where TEntity : class, new()
+
+// Patch a collection of DTO payloads with explicit included entity properties
+Task<PatchResult> Patch<TContext, TEntity, TDto>(
+    this IDataModelService<TContext> service,
+    IEnumerable<TDto?> items,
+    IEnumerable<Expression<Func<TEntity, object?>>> includedProperties,
+    CancellationToken cancellationToken = default)
+    where TContext : DbContext where TEntity : class, new()
 ```
 
 ### Extension Methods
@@ -708,23 +790,16 @@ var patchResult = await dataService.Patch(delta, token);
 
 ## ⬆️ Upgrade Notes
 
-### Upcoming version (post-1.3.0)
+### Current 1.4.0 Notes
 
-Potentially breaking behavior changes:
-
-- Concurrency token fields (`[Timestamp]` / `[ConcurrencyCheck]`) are now treated as guard fields, not regular patch fields.
-- When `ValidateConcurrencyTokens` is enabled (default), provided mismatched tokens now fail updates with `ResultType.Fail`.
-- If you enable `RequireConcurrencyTokenForUpdates`, updates for models with concurrency tokens will fail when token values are missing.
-
-Non-breaking API additions:
-
-- DTO-first service overloads (`Patch<TEntity, TDto>(...)`).
-- Optional strict unknown-field validation (`StrictPropertyMatching`).
-- `AddModelPatch(...)` now uses the Microsoft options pattern while keeping existing `ModelOptions` injection support.
+- `IKeyGenerator.Create()` now returns `KeyModel`.
+- `IKeyGenerator<TKey>` support is available for strongly typed key scenarios.
+- `AddModelPatch(...)` registers `IDataModelService<TContext>`, `IKeyGenerator`, and open-generic `IKeyGenerator<TKey>`.
+- Concurrency token validation options (`ValidateConcurrencyTokens`, `RequireConcurrencyTokenForUpdates`) are part of `ModelOptions`.
 
 ## 🧪 Testing
 
-The library includes comprehensive unit tests with >93% code coverage:
+The library includes comprehensive unit and integration tests:
 
 ```bash
 # Run tests
@@ -776,5 +851,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 **Author:** Juan Lopez  
-**Version:** 1.3.0
+**Version:** 1.4.0
 **Target Frameworks:** net9.0, net10.0

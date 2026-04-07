@@ -8,18 +8,15 @@ using System.Text;
 
 namespace CoreOne.ModelPatch.Services;
 
-/// <summary>
-/// Primary service for applying partial updates (PATCH operations) to EF Core entities with automatic relationship handling
-/// </summary>
-/// <typeparam name="TContext">EF Core DbContext type containing the entities</typeparam>
-public class DataModelService<TContext> : BaseService where TContext : DbContext
+public class DataModelService<TContext> : BaseService, IDataModelService<TContext> where TContext : DbContext
 {
-    private const BindingFlags Flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy;
-    private static readonly ConcurrentDictionary<Type, InvokeCallback> LutProcessModel = new(1, 50);
-    private static readonly Type SetType = typeof(DbSet<>);
-    private readonly TContext Context;
-    private readonly ModelOptions Options;
-    private readonly Data<Type, object> Sets;
+    protected const BindingFlags Flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy;
+    protected static readonly ConcurrentDictionary<Type, InvokeCallback> LutProcessModel = new(1, 50);
+    protected static readonly Type SetType = typeof(DbSet<>);
+    protected readonly TContext Context;
+    protected Type ContextType { get; }
+    protected ModelOptions Options { get; init; } = default!;
+    protected Data<Type, object> Sets { get; init; } = [];
 
     /// <summary>
     /// Initializes the service with default options from DI container
@@ -37,6 +34,7 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
     public DataModelService(IServiceProvider services, TContext context, IOptions<ModelOptions> options) : base(services)
     {
         var dbsets = MetaType.GetMetadatas(typeof(TContext), Flags);
+        ContextType = typeof(TContext);
         Context = context;
         Options = options.Value ?? new();
         var sets = dbsets.Where(p => p.FPType.IsGenericType && p.FPType.GetGenericTypeDefinition() == SetType);
@@ -56,78 +54,6 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
     }
 
     /// <summary>
-    /// Applies a partial update using a model instance directly
-    /// </summary>
-    /// <typeparam name="T">Entity type to patch</typeparam>
-    /// <param name="model">Entity instance containing fields to patch</param>
-    /// <param name="cancellationToken">Cancellation token for async operation</param>
-    /// <returns>Collection of all entities created or updated during the operation</returns>
-    public Task<PatchResult> Patch<T>(T model, CancellationToken cancellationToken = default) where T : class, new()
-    {
-        return Patch(model, _ => { }, cancellationToken);
-    }
-
-    /// <summary>
-    /// Applies a partial update using a model instance directly and lets callers adjust the generated delta first
-    /// </summary>
-    /// <typeparam name="T">Entity type to patch</typeparam>
-    /// <param name="model">Entity instance containing fields to patch</param>
-    /// <param name="configure">Callback for removing or editing delta fields before patching</param>
-    /// <param name="cancellationToken">Cancellation token for async operation</param>
-    /// <returns>Collection of all entities created or updated during the operation</returns>
-    public Task<PatchResult> Patch<T>(T model, Action<Delta<T>> configure, CancellationToken cancellationToken = default) where T : class, new()
-    {
-        return Patch(model.ToDelta(configure), cancellationToken);
-    }
-
-    /// <summary>
-    /// Applies a partial update from a DTO or anonymous object mapped to the target entity type
-    /// </summary>
-    /// <typeparam name="TEntity">Entity type to patch</typeparam>
-    /// <typeparam name="TDto">DTO type used as source payload</typeparam>
-    /// <param name="dto">DTO payload to map into a delta</param>
-    /// <param name="cancellationToken">Cancellation token for async operation</param>
-    /// <returns>Collection of all entities created or updated during the operation</returns>
-    public Task<PatchResult> Patch<TEntity, TDto>(TDto? dto, CancellationToken cancellationToken = default) where TEntity : class, new()
-    {
-        return dto is null ?
-            Task.FromResult(new PatchResult(null, 0, ResultType.Fail, $"DTO payload for {typeof(TEntity).Name} cannot be null")) :
-            Patch(dto.ToDelta<TEntity>(), cancellationToken);
-    }
-
-    /// <summary>
-    /// Applies a partial update from a DTO or anonymous object mapped to the target entity type and allows delta customization
-    /// </summary>
-    /// <typeparam name="TEntity">Entity type to patch</typeparam>
-    /// <typeparam name="TDto">DTO type used as source payload</typeparam>
-    /// <param name="dto">DTO payload to map into a delta</param>
-    /// <param name="configure">Callback for removing or editing delta fields before patching</param>
-    /// <param name="cancellationToken">Cancellation token for async operation</param>
-    /// <returns>Collection of all entities created or updated during the operation</returns>
-    public Task<PatchResult> Patch<TEntity, TDto>(TDto? dto, Action<Delta<TEntity>> configure, CancellationToken cancellationToken = default) where TEntity : class, new()
-    {
-        return dto is null ?
-            Task.FromResult(new PatchResult(null, 0, ResultType.Fail, $"DTO payload for {typeof(TEntity).Name} cannot be null")) :
-            Patch(dto.ToDelta(configure), cancellationToken);
-    }
-
-    /// <summary>
-    /// Applies a partial update from a DTO or anonymous object mapped to the target entity type using an explicit field allow-list
-    /// </summary>
-    /// <typeparam name="TEntity">Entity type to patch</typeparam>
-    /// <typeparam name="TDto">DTO type used as source payload</typeparam>
-    /// <param name="dto">DTO payload to map into a delta</param>
-    /// <param name="includedProperties">Entity properties to include from the DTO mapping</param>
-    /// <param name="cancellationToken">Cancellation token for async operation</param>
-    /// <returns>Collection of all entities created or updated during the operation</returns>
-    public Task<PatchResult> Patch<TEntity, TDto>(TDto? dto, IEnumerable<Expression<Func<TEntity, object?>>> includedProperties, CancellationToken cancellationToken = default) where TEntity : class, new()
-    {
-        return dto is null ?
-            Task.FromResult(new PatchResult(null, 0, ResultType.Fail, $"DTO payload for {typeof(TEntity).Name} cannot be null")) :
-            Patch(dto.ToDelta<TEntity>(includedProperties.ToArray()), cancellationToken);
-    }
-
-    /// <summary>
     /// Applies partial updates to multiple entities of the same type in a single transaction
     /// </summary>
     /// <typeparam name="T">Entity type to patch</typeparam>
@@ -141,68 +67,6 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         IResult<ProcessedModelCollection> result = new Result<ProcessedModelCollection>();
         return ProcessPatch(() => items.AggregateResultAsync(result, (next, item) => ProcessUnknownModel(type, item, new(), cancellationToken)
             .SelectAsync(p => updated.AddRange(p))), cancellationToken);
-    }
-
-    /// <summary>
-    /// Applies partial updates to multiple entities of the same type using model instances directly
-    /// </summary>
-    /// <typeparam name="T">Entity type to patch</typeparam>
-    /// <param name="items">Collection of models to patch</param>
-    /// <param name="cancellationToken">Cancellation token for async operation</param>
-    /// <returns>Collection of all entities created or updated during the operation</returns>
-    public Task<PatchResult> Patch<T>(IEnumerable<T?> items, CancellationToken cancellationToken = default) where T : class, new()
-    {
-        return Patch(items, _ => { }, cancellationToken);
-    }
-
-    /// <summary>
-    /// Applies partial updates to multiple entities of the same type using model instances directly and lets callers adjust each generated delta first
-    /// </summary>
-    /// <typeparam name="T">Entity type to patch</typeparam>
-    /// <param name="items">Collection of models to patch</param>
-    /// <param name="configure">Callback for removing or editing delta fields before patching</param>
-    /// <param name="cancellationToken">Cancellation token for async operation</param>
-    /// <returns>Collection of all entities created or updated during the operation</returns>
-    public Task<PatchResult> Patch<T>(IEnumerable<T?> items, Action<Delta<T>> configure, CancellationToken cancellationToken = default) where T : class, new()
-    {
-        var deltas = new DeltaCollection<T>();
-        foreach (var item in items.ExcludeNulls())
-            deltas.Add(item.ToDelta(configure));
-        return Patch(deltas, cancellationToken);
-    }
-
-    /// <summary>
-    /// Applies partial updates to multiple entities of the same type using DTO payloads directly
-    /// </summary>
-    /// <typeparam name="TEntity">Entity type to patch</typeparam>
-    /// <typeparam name="TDto">DTO type used as source payload</typeparam>
-    /// <param name="items">DTO payloads to map and patch</param>
-    /// <param name="cancellationToken">Cancellation token for async operation</param>
-    /// <returns>Collection of all entities created or updated during the operation</returns>
-    public Task<PatchResult> Patch<TEntity, TDto>(IEnumerable<TDto?> items, CancellationToken cancellationToken = default) where TEntity : class, new()
-    {
-        var deltas = new DeltaCollection<TEntity>();
-        foreach (var item in items.ExcludeNulls())
-            deltas.Add(item.ToDelta<TEntity>());
-        return Patch(deltas, cancellationToken);
-    }
-
-    /// <summary>
-    /// Applies partial updates to multiple entities of the same type using DTO payloads directly and an explicit field allow-list
-    /// </summary>
-    /// <typeparam name="TEntity">Entity type to patch</typeparam>
-    /// <typeparam name="TDto">DTO type used as source payload</typeparam>
-    /// <param name="items">DTO payloads to map and patch</param>
-    /// <param name="includedProperties">Entity properties to include from the DTO mapping</param>
-    /// <param name="cancellationToken">Cancellation token for async operation</param>
-    /// <returns>Collection of all entities created or updated during the operation</returns>
-    public Task<PatchResult> Patch<TEntity, TDto>(IEnumerable<TDto?> items, IEnumerable<Expression<Func<TEntity, object?>>> includedProperties, CancellationToken cancellationToken = default) where TEntity : class, new()
-    {
-        var deltas = new DeltaCollection<TEntity>();
-        var selector = includedProperties.ToArray();
-        foreach (var item in items.ExcludeNulls())
-            deltas.Add(item.ToDelta<TEntity>(selector));
-        return Patch(deltas, cancellationToken);
     }
 
     /// <summary>
@@ -225,15 +89,9 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         }
     }
 
-    private static InvokeCallback GetProcessModelInvoke(Type type) => LutProcessModel.GetOrAdd(type, p => {
-        var method = typeof(DataModelService<TContext>).GetMethod(nameof(ProcessModel), BindingFlags.NonPublic | BindingFlags.Instance);
-        method = method?.MakeGenericMethod(p);
-        return MetaType.GetInvokeMethod(method);
-    });
-
-    private async Task<PatchResult<T>> Process<T>(Func<Task<IResult<T>>> callback, CancellationToken cancellationToken = default)
+    protected async Task<PatchResult<T>> Process<T>(Func<Task<IResult<T>>> callback, CancellationToken cancellationToken = default)
     {
-        await using var transaction = await Context.BeginTransaction(Logger, cancellationToken).ConfigureAwait(false);
+        await using var transaction = await Context.BeginTransaction(cancellationToken).ConfigureAwait(false);
         if (!transaction.Success)
         {
             LogResult(transaction, "Failed processing patch");
@@ -264,10 +122,35 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         }
     }
 
-    private async Task<PatchResult> ProcessPatch(Func<Task<IResult<ProcessedModelCollection>>> callback, CancellationToken cancellationToken = default)
+    private static object? ConvertTokenValue(Type type, object? value)
     {
-        var result = await Process(callback, cancellationToken).ConfigureAwait(false);
-        return new PatchResult(result, result.Rows);
+        if (value is null)
+            return null;
+        if (type == typeof(byte[]))
+        {
+            return value switch {
+                byte[] bytes => bytes,
+                IEnumerable<byte> sequence => sequence.ToArray(),
+                string encoded => Convert.FromBase64String(encoded),
+                _ => value
+            };
+        }
+
+        var parsed = Types.Parse(type, value);
+        return parsed.Success ? parsed.Model : value;
+    }
+
+    private static InvokeCallback GetProcessModelInvoke(Type type) => LutProcessModel.GetOrAdd(type, p => {
+        var method = typeof(DataModelService<TContext>).GetMethod(nameof(ProcessModel), BindingFlags.NonPublic | BindingFlags.Instance);
+        method = method?.MakeGenericMethod(p);
+        return MetaType.GetInvokeMethod(method);
+    });
+
+    private static bool TokenEquals(Type type, object? left, object? right)
+    {
+        return (left is null && right is null) || (left is not null && right is not null && (type == typeof(byte[])) ?
+            ((byte[])left).SequenceEqual((byte[])right) :
+            left?.Equals(right) == true);
     }
 
     private (NamedKey key, T model) PatchModel<T>(ModelContext context, T model, Delta delta, NamedKey parentKey, bool isnew)
@@ -353,7 +236,7 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         return set is not null ?
             await context.GetPrimaryKeysExpression<T>(Options, delta)
                 .SelectResultAsync(ProcessExpression) :
-            Result.Fail<ProcessedModelCollection>($"{typeof(TContext)} does not contain DbSet of type {type.FullName}");
+            Result.Fail<ProcessedModelCollection>($"{ContextType} does not contain DbSet of type {type.FullName}");
 
         async Task<IResult<ProcessedModelCollection>> ProcessExpression(Expression<Func<T, bool>> expression)
         {
@@ -386,10 +269,16 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         }
     }
 
+    private async Task<PatchResult> ProcessPatch(Func<Task<IResult<ProcessedModelCollection>>> callback, CancellationToken cancellationToken = default)
+    {
+        var result = await Process(callback, cancellationToken).ConfigureAwait(false);
+        return new PatchResult(result, result.Rows);
+    }
+
     private async Task<IResult<ProcessedModelCollection>> ProcessUnknownModel(ModelContext context, Delta delta, NamedKey parentKey, CancellationToken cancellationToken = default)
     {
         if (!Sets.ContainsKey(context.Type))
-            return Result.Fail<ProcessedModelCollection>($"{typeof(TContext)} does not contain DbSet of type {context}");
+            return Result.Fail<ProcessedModelCollection>($"{ContextType} does not contain DbSet of type {context}");
         if (cancellationToken.IsCancellationRequested)
             return Result.Fail<ProcessedModelCollection>("Token has been cancelled");
 
@@ -410,24 +299,6 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         }
     }
 
-    private string? ValidateDeltaKeys(ModelContext context, Delta delta)
-    {
-        if (!Options.StrictPropertyMatching || delta.Count == 0)
-            return null;
-
-        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var metadata in context.Properties.Values)
-        {
-            allowed.Add(metadata.Name);
-            allowed.Add(Options.GetPreferredName(metadata));
-        }
-
-        var unknown = delta.Keys.Where(p => !allowed.Contains(p)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        return unknown.Count > 0 ?
-            $"Unknown fields for {context.Type.Name}: {string.Join(", ", unknown.OrderBy(p => p, StringComparer.OrdinalIgnoreCase))}" :
-            null;
-    }
-
     private string? ValidateConcurrencyTokens<T>(ModelContext context, T model, Delta delta)
     {
         if (context.ConcurrencyTokens.Count == 0)
@@ -445,7 +316,7 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         foreach (var token in providedTokens)
         {
             var fieldName = Options.GetPreferredName(token);
-            var rawValue = delta.ContainsKey(fieldName) ? delta[fieldName] : delta[token.Name];
+            var rawValue = delta.TryGetValue(fieldName, out object? value) ? value : delta[token.Name];
             var expected = token.GetValue(model);
             var incoming = ConvertTokenValue(token.FPType, rawValue);
             if (!TokenEquals(token.FPType, expected, incoming))
@@ -455,33 +326,21 @@ public class DataModelService<TContext> : BaseService where TContext : DbContext
         return null;
     }
 
-    private static object? ConvertTokenValue(Type type, object? value)
+    private string? ValidateDeltaKeys(ModelContext context, Delta delta)
     {
-        if (value is null)
+        if (!Options.StrictPropertyMatching || delta.Count == 0)
             return null;
-        if (type == typeof(byte[]))
+
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var metadata in context.Properties.Values)
         {
-            return value switch {
-                byte[] bytes => bytes,
-                IEnumerable<byte> sequence => sequence.ToArray(),
-                string encoded => Convert.FromBase64String(encoded),
-                _ => value
-            };
+            allowed.Add(metadata.Name);
+            allowed.Add(Options.GetPreferredName(metadata));
         }
 
-        var parsed = Types.Parse(type, value);
-        return parsed.Success ? parsed.Model : value;
-    }
-
-    private static bool TokenEquals(Type type, object? left, object? right)
-    {
-        if (left is null && right is null)
-            return true;
-        if (left is null || right is null)
-            return false;
-        if (type == typeof(byte[]))
-            return ((byte[])left).SequenceEqual((byte[])right);
-
-        return left.Equals(right);
+        var unknown = delta.Keys.Where(p => !allowed.Contains(p)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        return unknown.Count > 0 ?
+            $"Unknown fields for {context.Type.Name}: {string.Join(", ", unknown.OrderBy(p => p, StringComparer.OrdinalIgnoreCase))}" :
+            null;
     }
 }

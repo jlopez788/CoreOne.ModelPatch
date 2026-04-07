@@ -59,7 +59,7 @@ public class BranchCoverageTests : Disposable
     {
         var blog = new Blog { BlogId = ID.Create().AsGuid(), Name = "Test" };
         var result = new PatchResult<Blog>(blog, 5);
-        
+
         Assert.IsTrue(result.Success);
         Assert.IsNotNull(result.Model);
         Assert.AreEqual(blog, result.Model);
@@ -72,7 +72,7 @@ public class BranchCoverageTests : Disposable
     {
         var baseResult = new Result<string>("test") { ResultType = ResultType.Success };
         var patchResult = new PatchResult<string>(baseResult);
-        
+
         Assert.IsTrue(patchResult.Success);
         Assert.AreEqual(ResultType.Success, patchResult.ResultType);
         Assert.IsNull(patchResult.Message);
@@ -83,7 +83,7 @@ public class BranchCoverageTests : Disposable
     {
         var baseResult = Result.Fail<string>("Operation failed");
         var patchResult = new PatchResult<string>(baseResult);
-        
+
         Assert.IsFalse(patchResult.Success);
         Assert.AreEqual(ResultType.Fail, patchResult.ResultType);
         Assert.AreEqual("Operation failed", patchResult.Message);
@@ -97,7 +97,7 @@ public class BranchCoverageTests : Disposable
             ResultType = ResultType.Success,
             Rows = 3
         };
-        
+
         Assert.IsTrue(result.Success);
         Assert.AreEqual("Custom message", result.Message);
         Assert.AreEqual(3, result.Rows);
@@ -116,7 +116,7 @@ public class BranchCoverageTests : Disposable
         collection.GetType().GetMethod("Add", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
             .Invoke(collection, [new ModelState(new Blog { Name = "Blog2" }, CrudType.Updated)]);
         var result = new Result<ProcessedModelCollection>(collection);
-        
+
         var count = result.Count();
         Assert.AreEqual(2, count);
     }
@@ -130,7 +130,7 @@ public class BranchCoverageTests : Disposable
         collection.GetType().GetMethod("Add", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
             .Invoke(collection, [new ModelState(new Blog { Name = "Blog2" }, CrudType.Updated)]);
         var result = new Result<ProcessedModelCollection>(collection);
-        
+
         var count = result.Count(p => p.CrudType == CrudType.Created);
         Assert.AreEqual(1, count);
     }
@@ -139,7 +139,7 @@ public class BranchCoverageTests : Disposable
     public void ProcessedModelExtensions_Count_FailedResult()
     {
         var result = Result.Fail<ProcessedModelCollection>("Error");
-        
+
         var count = result.Count();
         Assert.AreEqual(0, count);
     }
@@ -148,7 +148,7 @@ public class BranchCoverageTests : Disposable
     public void ProcessedModelExtensions_Count_EmptyCollection()
     {
         var result = new Result<ProcessedModelCollection>(new ProcessedModelCollection());
-        
+
         var count = result.Count();
         Assert.AreEqual(0, count);
     }
@@ -162,7 +162,7 @@ public class BranchCoverageTests : Disposable
         collection.GetType().GetMethod("Add", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
             .Invoke(collection, [new ModelState(new Post { Title = "Post1" }, CrudType.Created)]);
         var result = new Result<ProcessedModelCollection>(collection);
-        
+
         var blogs = result.OfType<Blog>().ToList();
         Assert.HasCount(1, blogs);
         Assert.AreEqual("Blog1", blogs[0].Name);
@@ -177,7 +177,7 @@ public class BranchCoverageTests : Disposable
         addMethod.Invoke(collection, [new ModelState(new Blog { Name = "Blog2" }, CrudType.Updated)]);
         addMethod.Invoke(collection, [new ModelState(new Post { Title = "Post1" }, CrudType.Created)]);
         var result = new Result<ProcessedModelCollection>(collection);
-        
+
         var createdBlogs = result.OfType<Blog>(p => p.CrudType == CrudType.Created).ToList();
         Assert.HasCount(1, createdBlogs);
         Assert.AreEqual("Blog1", createdBlogs[0].Name);
@@ -187,7 +187,7 @@ public class BranchCoverageTests : Disposable
     public void ProcessedModelExtensions_OfType_FailedResult()
     {
         var result = Result.Fail<ProcessedModelCollection>("Error");
-        
+
         var items = result.OfType<Blog>().ToList();
         Assert.IsEmpty(items);
     }
@@ -196,7 +196,7 @@ public class BranchCoverageTests : Disposable
     public void ProcessedModelExtensions_OfType_EmptyCollection()
     {
         var result = new Result<ProcessedModelCollection>(new ProcessedModelCollection());
-        
+
         var items = result.OfType<Blog>().ToList();
         Assert.IsEmpty(items);
     }
@@ -209,11 +209,11 @@ public class BranchCoverageTests : Disposable
     public async Task TransactionState_BeginTransaction_WithoutLogger()
     {
         var transaction = await Context.BeginTransaction(Token);
-        
+
         Assert.IsNotNull(transaction);
         Assert.IsTrue(transaction.Success);
         Assert.IsFalse(transaction.IsDisposed);
-        
+
         await transaction.DisposeAsync();
         Assert.IsTrue(transaction.IsDisposed);
     }
@@ -224,11 +224,11 @@ public class BranchCoverageTests : Disposable
         var loggerFactory = Services.GetRequiredService<ILoggerFactory>();
         var logger = loggerFactory.CreateLogger<BranchCoverageTests>();
         var transaction = await Context.BeginTransaction(logger, Token);
-        
+
         Assert.IsNotNull(transaction);
         Assert.IsTrue(transaction.Success);
         Assert.IsFalse(transaction.IsDisposed);
-        
+
         await transaction.Commit();
         Assert.IsTrue(transaction.IsDisposed);
     }
@@ -237,12 +237,12 @@ public class BranchCoverageTests : Disposable
     public async Task TransactionState_FailedTransaction()
     {
         var failedTransaction = new TransactionState("Transaction failed");
-        
+
         Assert.IsFalse(failedTransaction.Success);
         Assert.IsTrue(failedTransaction.IsDisposed);
         Assert.AreEqual("Transaction failed", failedTransaction.Message);
         Assert.AreEqual(ResultType.Fail, failedTransaction.ResultType);
-        
+
         // Should handle dispose gracefully
         await failedTransaction.DisposeAsync();
     }
@@ -251,10 +251,10 @@ public class BranchCoverageTests : Disposable
     public async Task TransactionState_Rollback()
     {
         var transaction = await Context.BeginTransaction(Token);
-        
+
         await transaction.Rollback();
         Assert.IsTrue(transaction.IsDisposed);
-        
+
         // Second rollback should be safe
         await transaction.Rollback();
     }
@@ -263,10 +263,10 @@ public class BranchCoverageTests : Disposable
     public async Task TransactionState_MultipleCommits()
     {
         var transaction = await Context.BeginTransaction(Token);
-        
+
         await transaction.Commit();
         Assert.IsTrue(transaction.IsDisposed);
-        
+
         // Second commit should be safe
         await transaction.Commit();
     }
@@ -280,10 +280,10 @@ public class BranchCoverageTests : Disposable
     {
         var cts = new CancellationTokenSource();
         cts.Cancel();
-        
+
         var delta = new Blog { Name = "Test" }.ToDelta();
         var result = await Service.Patch(delta, cts.Token);
-        
+
         Assert.IsFalse(result.Success);
     }
 
@@ -294,14 +294,14 @@ public class BranchCoverageTests : Disposable
             BlogId = ID.Create().AsGuid(),
             Name = "Local Blog"
         };
-        
+
         // Add to local context without saving
         Context.Blogs.Add(blog);
-        
+
         // Try to patch the same entity (by ID)
         var delta = blog.ToDelta();
         var result = await Service.Patch(delta, Token);
-        
+
         Assert.AreEqual(ResultType.Success, result.ResultType);
     }
 
@@ -312,9 +312,9 @@ public class BranchCoverageTests : Disposable
             new Blog { BlogId = ID.Create().AsGuid(), Name = "Blog1" },
             new Post { PostId = ID.Create().AsGuid(), Title = "Post1", Content = "Content" }
         };
-        
+
         var result = await Service.PatchCollection(items, Token);
-        
+
         Assert.AreEqual(ResultType.Success, result.ResultType);
         Assert.AreEqual(2, result.Count());
     }
@@ -327,9 +327,9 @@ public class BranchCoverageTests : Disposable
             null,
             new Post { PostId = ID.Create().AsGuid(), Title = "Post1", Content = "Content" }
         };
-        
+
         var result = await Service.PatchCollection(items!, Token);
-        
+
         Assert.AreEqual(ResultType.Success, result.ResultType);
         Assert.AreEqual(2, result.Count()); // Nulls should be excluded
     }
@@ -341,10 +341,10 @@ public class BranchCoverageTests : Disposable
             new() { BlogId = ID.Create().AsGuid(), Name = "Blog1" },
             new() { BlogId = ID.Create().AsGuid(), Name = "Blog2" }
         };
-        
+
         var deltaCollection = blogs.ToDeltaCollection();
         var result = await Service.Patch(deltaCollection, Token);
-        
+
         Assert.AreEqual(ResultType.Success, result.ResultType);
         Assert.AreEqual(2, result.Count());
     }
@@ -358,13 +358,13 @@ public class BranchCoverageTests : Disposable
                 new ChatMessage(ChatRoleType.Agent, "Hi there")
             ]
         };
-        
+
         var delta = session.ToDelta();
         var result = await Service.Patch(delta, Token);
-        
+
         Assert.AreEqual(ResultType.Success, result.ResultType);
         Assert.AreEqual(3, result.Count()); // 1 session + 2 messages
-        
+
         var savedSession = await Context.Session
             .Include(s => s.Messages)
             .FirstOrDefaultAsync(Token);
@@ -383,10 +383,10 @@ public class BranchCoverageTests : Disposable
                 new ChatMessage(ChatRoleType.User, "Message 1")
             ]
         };
-        
+
         var result = await Service.Patch(session.ToDelta(), Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
-        
+
         // Update with new message
         var updatedSession = new ChatSession("Updated Title") {
             Key = sessionId,
@@ -394,10 +394,10 @@ public class BranchCoverageTests : Disposable
                 new ChatMessage(ChatRoleType.Agent, "Message 2")
             ]
         };
-        
+
         result = await Service.Patch(updatedSession.ToDelta(), Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
-        
+
         var saved = await Context.Session
             .Include(s => s.Messages)
             .FirstOrDefaultAsync(s => s.Key == sessionId, Token);
@@ -413,7 +413,7 @@ public class BranchCoverageTests : Disposable
         // Empty delta without primary key will try to create but may fail validation
         // if required fields are missing
         var result = await Service.Patch(delta, Token);
-        
+
         // Result can be success or fail depending on validation
         Assert.IsNotNull(result);
     }
@@ -425,10 +425,10 @@ public class BranchCoverageTests : Disposable
             BlogId = ID.Create().AsGuid(),
             Name = "This is a very long name that exceeds the maximum length allowed by the validation attributes" // > 50 chars
         };
-        
+
         var delta = blog.ToDelta();
         var result = await Service.Patch(delta, Token);
-        
+
         Assert.AreEqual(ResultType.Fail, result.ResultType);
     }
 
@@ -444,10 +444,10 @@ public class BranchCoverageTests : Disposable
             BlogId = ID.Create().AsGuid(),
             Name = "Test"
         };
-        
+
         var delta = blog.ToDelta();
         var result = await Service.Patch(delta, Token);
-        
+
         Assert.AreEqual(ResultType.Success, result.ResultType);
     }
 
@@ -460,18 +460,18 @@ public class BranchCoverageTests : Disposable
             Name = "Original Name",
             Url = "original.com"
         };
-        
+
         await Service.Patch(blog.ToDelta(), Token);
-        
+
         // Update only Url, not primary key
         var updateDelta = new Delta<Blog> {
             ["blogid"] = blogId,
             ["url"] = "updated.com"
         };
-        
+
         var result = await Service.Patch(updateDelta, Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
-        
+
         var saved = await Context.Blogs.FirstOrDefaultAsync(b => b.BlogId == blogId, Token);
         Assert.IsNotNull(saved);
         Assert.AreEqual("updated.com", saved.Url);
@@ -486,7 +486,7 @@ public class BranchCoverageTests : Disposable
             ["name"] = "Test2", // Should overwrite
             ["NAME"] = "Test3"  // Should overwrite again
         };
-        
+
         Assert.AreEqual("Test3", delta["name"]);
         Assert.AreEqual("Test3", delta["Name"]);
         Assert.AreEqual("Test3", delta["NAME"]);
@@ -501,7 +501,7 @@ public class BranchCoverageTests : Disposable
     {
         Blog? nullBlog = null;
         var delta = nullBlog.ToDelta();
-        
+
         Assert.IsNotNull(delta);
         Assert.IsEmpty(delta);
     }
@@ -511,7 +511,7 @@ public class BranchCoverageTests : Disposable
     {
         List<Blog>? nullList = null;
         var deltaCollection = nullList.ToDeltaCollection();
-        
+
         Assert.IsNotNull(deltaCollection);
         Assert.IsEmpty(deltaCollection);
     }
@@ -521,7 +521,7 @@ public class BranchCoverageTests : Disposable
     {
         var emptyList = new List<Blog>();
         var deltaCollection = emptyList.ToDeltaCollection();
-        
+
         Assert.IsNotNull(deltaCollection);
         Assert.IsEmpty(deltaCollection);
     }
@@ -534,86 +534,86 @@ public class BranchCoverageTests : Disposable
             null,
             new() { Name = "Blog2" }
         };
-        
+
         var deltaCollection = listWithNulls.ToDeltaCollection();
-        
+
         Assert.HasCount(2, deltaCollection);
     }
 
-            [TestMethod]
-            public void ToDelta_TargetEntity_WithIncludedPropertyNames()
-            {
-                var dto = new BlogPatchDto {
-                    BlogId = ID.Create().AsGuid(),
-                    Name = "Filtered",
-                    Url = "filtered.com",
-                    Extra = "ignored"
-                };
+    [TestMethod]
+    public void ToDelta_TargetEntity_WithIncludedPropertyNames()
+    {
+        var dto = new BlogPatchDto {
+            BlogId = ID.Create().AsGuid(),
+            Name = "Filtered",
+            Url = "filtered.com",
+            Extra = "ignored"
+        };
 
-                var delta = dto.ToDelta<Blog>(nameof(Blog.BlogId), nameof(Blog.Name));
+        var delta = dto.ToDelta<Blog>(nameof(Blog.BlogId), nameof(Blog.Name));
 
-                Assert.AreEqual(2, delta.Count);
-                Assert.IsTrue(delta.ContainsKey(nameof(Blog.BlogId)));
-                Assert.IsTrue(delta.ContainsKey(nameof(Blog.Name)));
-                Assert.IsFalse(delta.ContainsKey(nameof(Blog.Url)));
-                Assert.IsFalse(delta.ContainsKey(nameof(BlogPatchDto.Extra)));
-            }
+        Assert.HasCount(2, delta);
+        Assert.IsTrue(delta.ContainsKey(nameof(Blog.BlogId)));
+        Assert.IsTrue(delta.ContainsKey(nameof(Blog.Name)));
+        Assert.IsFalse(delta.ContainsKey(nameof(Blog.Url)));
+        Assert.IsFalse(delta.ContainsKey(nameof(BlogPatchDto.Extra)));
+    }
 
-            [TestMethod]
-            public void ToDelta_TargetEntity_WithIncludedExpressions()
-            {
-                var dto = new BlogPatchDto {
-                    BlogId = ID.Create().AsGuid(),
-                    Name = "Filtered",
-                    Url = "filtered.com"
-                };
+    [TestMethod]
+    public void ToDelta_TargetEntity_WithIncludedExpressions()
+    {
+        var dto = new BlogPatchDto {
+            BlogId = ID.Create().AsGuid(),
+            Name = "Filtered",
+            Url = "filtered.com"
+        };
 
-                var delta = dto.ToDelta<Blog>(p => p.BlogId, p => p.Url);
+        var delta = dto.ToDelta<Blog>(p => p.BlogId, p => p.Url);
 
-                Assert.AreEqual(2, delta.Count);
-                Assert.IsTrue(delta.ContainsKey(nameof(Blog.BlogId)));
-                Assert.IsTrue(delta.ContainsKey(nameof(Blog.Url)));
-                Assert.IsFalse(delta.ContainsKey(nameof(Blog.Name)));
-            }
+        Assert.AreEqual(2, delta.Count);
+        Assert.IsTrue(delta.ContainsKey(nameof(Blog.BlogId)));
+        Assert.IsTrue(delta.ContainsKey(nameof(Blog.Url)));
+        Assert.IsFalse(delta.ContainsKey(nameof(Blog.Name)));
+    }
 
     #endregion
 
-            #region ModelOptions Json Helpers Tests
+    #region ModelOptions Json Helpers Tests
 
-            [TestMethod]
-            public void ModelOptions_UseNewtonsoftJsonPropertyNames()
-            {
-                var options = new ModelOptions().UseNewtonsoftJsonPropertyNames();
-                var metadata = MetaType.GetMetadatas(typeof(Tag)).First(p => p.Name == nameof(Tag.Name));
+    [TestMethod]
+    public void ModelOptions_UseNewtonsoftJsonPropertyNames()
+    {
+        var options = new ModelOptions().UseNewtonsoftJsonPropertyNames();
+        var metadata = MetaType.GetMetadatas(typeof(Tag)).First(p => p.Name == nameof(Tag.Name));
 
-                var name = options.NameResolver?.Invoke(metadata);
-                Assert.AreEqual("name_one", name);
-            }
+        var name = options.NameResolver?.Invoke(metadata);
+        Assert.AreEqual("name_one", name);
+    }
 
-            [TestMethod]
-            public void ModelOptions_UseSystemTextJsonPropertyNames()
-            {
-                var options = new ModelOptions().UseSystemTextJsonPropertyNames();
-                var metadata = MetaType.GetMetadatas(typeof(SystemTextJsonPatchDto)).First(p => p.Name == nameof(SystemTextJsonPatchDto.DisplayName));
+    [TestMethod]
+    public void ModelOptions_UseSystemTextJsonPropertyNames()
+    {
+        var options = new ModelOptions().UseSystemTextJsonPropertyNames();
+        var metadata = MetaType.GetMetadatas(typeof(SystemTextJsonPatchDto)).First(p => p.Name == nameof(SystemTextJsonPatchDto.DisplayName));
 
-                var name = options.NameResolver?.Invoke(metadata);
-                Assert.AreEqual("display_name", name);
-            }
+        var name = options.NameResolver?.Invoke(metadata);
+        Assert.AreEqual("display_name", name);
+    }
 
-            [TestMethod]
-            public void ModelOptions_UseJsonPropertyNames_FallsBackToExistingResolver()
-            {
-                var options = new ModelOptions {
-                    NameResolver = meta => $"mapped_{meta.Name}"
-                }.UseJsonPropertyNames();
-                var attributed = MetaType.GetMetadatas(typeof(SystemTextJsonPatchDto)).First(p => p.Name == nameof(SystemTextJsonPatchDto.DisplayName));
-                var plain = MetaType.GetMetadatas(typeof(SystemTextJsonPatchDto)).First(p => p.Name == nameof(SystemTextJsonPatchDto.PlainName));
+    [TestMethod]
+    public void ModelOptions_UseJsonPropertyNames_FallsBackToExistingResolver()
+    {
+        var options = new ModelOptions {
+            NameResolver = meta => $"mapped_{meta.Name}"
+        }.UseJsonPropertyNames();
+        var attributed = MetaType.GetMetadatas(typeof(SystemTextJsonPatchDto)).First(p => p.Name == nameof(SystemTextJsonPatchDto.DisplayName));
+        var plain = MetaType.GetMetadatas(typeof(SystemTextJsonPatchDto)).First(p => p.Name == nameof(SystemTextJsonPatchDto.PlainName));
 
-                Assert.AreEqual("display_name", options.NameResolver?.Invoke(attributed));
-                Assert.AreEqual("mapped_PlainName", options.NameResolver?.Invoke(plain));
-            }
+        Assert.AreEqual("display_name", options.NameResolver?.Invoke(attributed));
+        Assert.AreEqual("mapped_PlainName", options.NameResolver?.Invoke(plain));
+    }
 
-            #endregion
+    #endregion
 
     #region ModelContext Deep Tests
 
@@ -622,7 +622,7 @@ public class BranchCoverageTests : Disposable
     {
         Type blogType = typeof(Blog);
         ModelContext context = blogType;
-        
+
         Assert.IsNotNull(context);
         Assert.AreEqual(blogType, context.Type);
         Assert.IsTrue(context.IsValid);
@@ -633,7 +633,7 @@ public class BranchCoverageTests : Disposable
     {
         var context = new ModelContext(typeof(Blog));
         var str = context.ToString();
-        
+
         Assert.Contains("Blog", str);
     }
 
@@ -643,7 +643,7 @@ public class BranchCoverageTests : Disposable
         var parentKeys = new List<ModelKey> { new("BlogId", true) };
         var link = new ModelLink(parentKeys, "MyBlogId");
         var context = new ModelContext(typeof(Post), link);
-        
+
         Assert.IsNotNull(context.Link);
         Assert.AreEqual("MyBlogId", context.Link.ChildProperty);
         Assert.IsTrue(context.IsValid);
@@ -654,7 +654,7 @@ public class BranchCoverageTests : Disposable
     {
         // Create a context for a type without [Key] attribute but with Id property
         var context = new ModelContext(typeof(User));
-        
+
         Assert.IsTrue(context.IsValid);
         Assert.IsGreaterThan(0, context.Keys.Count);
     }
@@ -668,13 +668,13 @@ public class BranchCoverageTests : Disposable
     {
         var result = new Result<ProcessedModelCollection>(new ProcessedModelCollection());
         var addMethod = result.Model!.GetType().GetMethod("Add", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-        
+
         var blog1 = new ModelState(new Blog { Name = "Blog1" }, CrudType.Created);
         var blog2 = new ModelState(new Blog { Name = "Blog2" }, CrudType.Updated);
-        
+
         addMethod.Invoke(result.Model, [blog1]);
         addMethod.Invoke(result.Model, [blog2]);
-        
+
         Assert.AreEqual(2, result.Model.Count);
         Assert.AreEqual(blog1, result.Model[0]);
         Assert.AreEqual(blog2, result.Model[1]);
@@ -685,10 +685,10 @@ public class BranchCoverageTests : Disposable
     {
         var collection = new ProcessedModelCollection();
         var addMethod = collection.GetType().GetMethod("Add", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-        
+
         addMethod.Invoke(collection, [new ModelState(new Blog { Name = "Test" }, CrudType.Created)]);
         addMethod.Invoke(collection, [new ModelState(new Post { Title = "Test" }, CrudType.Created)]);
-        
+
         var str = collection.ToString();
         Assert.AreEqual("Count: 2", str);
     }
@@ -698,16 +698,16 @@ public class BranchCoverageTests : Disposable
     {
         var collection = new ProcessedModelCollection();
         var addMethod = collection.GetType().GetMethod("Add", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-        
+
         addMethod.Invoke(collection, [new ModelState(new Blog { Name = "Blog1" }, CrudType.Created)]);
         addMethod.Invoke(collection, [new ModelState(new Blog { Name = "Blog2" }, CrudType.Created)]);
-        
+
         var list = new List<ModelState>();
         foreach (var item in collection)
         {
             list.Add(item);
         }
-        
+
         Assert.HasCount(2, list);
     }
 
@@ -718,13 +718,13 @@ public class BranchCoverageTests : Disposable
         var collection2 = new ProcessedModelCollection();
         var addMethod = collection1.GetType().GetMethod("Add", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
         var addRangeMethod = collection1.GetType().GetMethod("AddRange", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
-        
+
         addMethod.Invoke(collection1, [new ModelState(new Blog { Name = "Blog1" }, CrudType.Created)]);
         addMethod.Invoke(collection2, [new ModelState(new Blog { Name = "Blog2" }, CrudType.Created)]);
         addMethod.Invoke(collection2, [new ModelState(new Blog { Name = "Blog3" }, CrudType.Created)]);
-        
+
         addRangeMethod.Invoke(collection1, [collection2]);
-        
+
         Assert.AreEqual(3, collection1.Count);
     }
 
@@ -737,7 +737,7 @@ public class BranchCoverageTests : Disposable
     {
         // Test that a normal model with keys creates valid context
         var context = new ModelContext(typeof(Blog));
-        
+
         Assert.IsTrue(context.IsValid); // Should have keys
         Assert.IsGreaterThan(0, context.Keys.Count);
     }
@@ -753,10 +753,10 @@ public class BranchCoverageTests : Disposable
                 new Post { PostId = ID.Create().AsGuid(), Title = "Post 2", Content = "Content 2" }
             ]
         };
-        
+
         var delta = blog.ToDelta();
         var result = await Service.Patch(delta, Token);
-        
+
         Assert.AreEqual(ResultType.Success, result.ResultType);
         Assert.AreEqual(3, result.Count()); // 1 blog + 2 posts
         Assert.AreEqual(1, result.Count(p => p.CrudType == CrudType.Created && p.Model is Blog));
@@ -769,16 +769,16 @@ public class BranchCoverageTests : Disposable
         // Test with Tag which has both primary key and unique index
         var tag1 = new Tag { Id = ID.Create().AsGuid(), Name = "tag1" };
         var tag2 = new Tag { Id = ID.Create().AsGuid(), Name = "tag1" }; // Same name, different ID
-        
+
         var result1 = await Service.Patch(tag1.ToDelta(), Token);
         Assert.AreEqual(ResultType.Success, result1.ResultType);
         Assert.AreEqual(1, result1.Count(p => p.CrudType == CrudType.Created));
-        
+
         // Second insert with same name should update, not create
         var result2 = await Service.Patch(tag2.ToDelta(), Token);
         Assert.AreEqual(ResultType.Success, result2.ResultType);
         Assert.AreEqual(1, result2.Count(p => p.CrudType == CrudType.Updated));
-        
+
         var count = await Context.Tags.CountAsync(Token);
         Assert.AreEqual(1, count);
     }
@@ -795,10 +795,10 @@ public class BranchCoverageTests : Disposable
                 new Tag("unique3")
             ]
         };
-        
+
         var result = await Service.Patch(blog1.ToDelta(), Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
-        
+
         // Try to add blog with some duplicate tags
         var blog2 = new Blog {
             BlogId = ID.Create().AsGuid(),
@@ -809,10 +809,10 @@ public class BranchCoverageTests : Disposable
                 new Tag("unique4")  // New - should create
             ]
         };
-        
+
         result = await Service.Patch(blog2.ToDelta(), Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
-        
+
         var tagCount = await Context.Tags.CountAsync(Token);
         Assert.AreEqual(4, tagCount); // 3 from first + 1 new
     }
@@ -831,16 +831,16 @@ public class BranchCoverageTests : Disposable
                 new ChatMessage(ChatRoleType.User, "Question 2")
             ]
         };
-        
+
         var result = await Service.Patch(session.ToDelta(), Token);
-        
+
         Assert.AreEqual(ResultType.Success, result.ResultType);
         Assert.AreEqual(4, result.Count()); // 1 session + 3 messages
-        
+
         var savedSession = await Context.Session
             .Include(s => s.Messages)
             .FirstOrDefaultAsync(Token);
-        
+
         Assert.IsNotNull(savedSession);
         Assert.HasCount(3, savedSession.Messages);
         Assert.AreEqual("Deep Test", savedSession.Title);
@@ -851,7 +851,7 @@ public class BranchCoverageTests : Disposable
     {
         var blogId = ID.Create().AsGuid();
         var postId = ID.Create().AsGuid();
-        
+
         // Create initial blog with one post
         var blog = new Blog {
             BlogId = blogId,
@@ -860,9 +860,9 @@ public class BranchCoverageTests : Disposable
                 new Post { PostId = postId, Title = "Initial Post", Content = "Content" }
             ]
         };
-        
+
         await Service.Patch(blog.ToDelta(), Token);
-        
+
         // Update blog and add another post
         var updatedBlog = new Blog {
             BlogId = blogId,
@@ -872,14 +872,14 @@ public class BranchCoverageTests : Disposable
                 new Post { PostId = ID.Create().AsGuid(), Title = "New Post", Content = "New Content" }
             ]
         };
-        
+
         var result = await Service.Patch(updatedBlog.ToDelta(), Token);
-        
+
         Assert.AreEqual(ResultType.Success, result.ResultType);
         Assert.AreEqual(1, result.Count(p => p.CrudType == CrudType.Updated && p.Model is Blog));
         Assert.AreEqual(1, result.Count(p => p.CrudType == CrudType.Updated && p.Model is Post));
         Assert.AreEqual(1, result.Count(p => p.CrudType == CrudType.Created && p.Model is Post));
-        
+
         var saved = await Context.Blogs.Include(b => b.Posts).FirstOrDefaultAsync(b => b.BlogId == blogId, Token);
         Assert.IsNotNull(saved);
         Assert.AreEqual("Updated Blog", saved.Name);
@@ -895,9 +895,9 @@ public class BranchCoverageTests : Disposable
             Posts = [],
             Tags = []
         };
-        
+
         var result = await Service.Patch(blog.ToDelta(), Token);
-        
+
         Assert.AreEqual(ResultType.Success, result.ResultType);
         Assert.AreEqual(1, result.Count());
     }
@@ -909,9 +909,9 @@ public class BranchCoverageTests : Disposable
             Id = Guid.Empty, // Will be auto-generated
             Name = "auto-generated-id"
         };
-        
+
         var result = await Service.Patch(tag.ToDelta(), Token);
-        
+
         Assert.AreEqual(ResultType.Success, result.ResultType);
         var saved = await Context.Tags.FirstOrDefaultAsync(t => t.Name == "auto-generated-id", Token);
         Assert.IsNotNull(saved);
@@ -926,7 +926,7 @@ public class BranchCoverageTests : Disposable
             ["Name"] = "Test",
             ["URL"] = "test.com"
         };
-        
+
         Assert.IsTrue(delta.ContainsKey("blogid"));
         Assert.IsTrue(delta.ContainsKey("BlogId")); // Case insensitive
         Assert.IsTrue(delta.ContainsKey("name"));
@@ -937,7 +937,7 @@ public class BranchCoverageTests : Disposable
     public async Task Patch_PartialPropertyUpdate()
     {
         var blogId = ID.Create().AsGuid();
-        
+
         // Create blog
         var blog = new Blog {
             BlogId = blogId,
@@ -945,16 +945,16 @@ public class BranchCoverageTests : Disposable
             Url = "original.com"
         };
         await Service.Patch(blog.ToDelta(), Token);
-        
+
         // Update only Name, not Url
         var partialDelta = new Delta<Blog> {
             ["blogid"] = blogId,
             ["name"] = "New Name"
         };
-        
+
         var result = await Service.Patch(partialDelta, Token);
         Assert.AreEqual(ResultType.Success, result.ResultType);
-        
+
         var saved = await Context.Blogs.FirstOrDefaultAsync(b => b.BlogId == blogId, Token);
         Assert.AreEqual("New Name", saved!.Name);
         Assert.AreEqual("original.com", saved.Url); // Should not change
@@ -967,9 +967,9 @@ public class BranchCoverageTests : Disposable
             Id = ID.Create().AsGuid(),
             Status = UserStatus.New // Default enum value
         };
-        
+
         var result = await Service.Patch(user.ToDelta(), Token);
-        
+
         Assert.AreEqual(ResultType.Success, result.ResultType);
         var saved = await Context.Users.FirstOrDefaultAsync(u => u.Id == user.Id, Token);
         Assert.IsNotNull(saved);
@@ -1041,7 +1041,7 @@ public class BranchCoverageTests : Disposable
             Url = "dto.com"
         };
 
-        var result = await Service.Patch<Blog, BlogPatchDto>(dto, Token);
+        var result = await Service.Patch<TestDbContext, Blog, BlogPatchDto>(dto, Token);
 
         Assert.AreEqual(ResultType.Success, result.ResultType);
         Assert.AreEqual(1, result.Created);
@@ -1063,7 +1063,7 @@ public class BranchCoverageTests : Disposable
             Url = "updated.com"
         };
 
-        var result = await Service.Patch<Blog, BlogPatchDto>(dto, [p => p.BlogId, p => p.Url], Token);
+        var result = await Service.Patch<TestDbContext, Blog, BlogPatchDto>(dto, [p => p.BlogId, p => p.Url], Token);
 
         Assert.AreEqual(ResultType.Success, result.ResultType);
         var saved = await Context.Blogs.FirstOrDefaultAsync(p => p.BlogId == id, Token);
@@ -1146,7 +1146,7 @@ public class BranchCoverageTests : Disposable
             .AddModelPatch(options => options.StrictPropertyMatching = true)
             .BuildServiceProvider();
 
-        var service = services.GetRequiredService<DataModelService<TestDbContext>>();
+        var service = services.GetRequiredService<IDataModelService<TestDbContext>>();
         var options = services.GetRequiredService<IOptions<ModelOptions>>();
 
         Assert.IsNotNull(service);

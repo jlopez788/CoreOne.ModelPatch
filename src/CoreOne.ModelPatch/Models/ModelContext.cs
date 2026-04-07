@@ -49,9 +49,7 @@ public class ModelContext
         Link = link;
         Code = (Type, Link).GetHashCode();
         Properties = properties.ToDictionary();
-        ConcurrencyTokens = properties
-            .Where(p => p.GetCustomAttribute<TimestampAttribute>() is not null || p.GetCustomAttribute<ConcurrencyCheckAttribute>() is not null)
-            .ToList();
+        ConcurrencyTokens = [.. properties.Where(p => p.GetCustomAttribute<TimestampAttribute>() is not null || p.GetCustomAttribute<ConcurrencyCheckAttribute>() is not null)];
         var pKey = properties.Where(p => p.GetCustomAttribute<KeyAttribute>() is not null)
             .Select(p => new ModelKey(p.Name, true))
             .ToList();

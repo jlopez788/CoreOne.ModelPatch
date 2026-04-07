@@ -61,7 +61,7 @@ public static class DeltaExtensions
     public static Delta<TEntity> ToDelta<TEntity>(this object? model, Action<Delta<TEntity>> configure) where TEntity : class, new()
     {
         var delta = ToDelta<TEntity>(model);
-        configure(delta);
+        configure?.Invoke(delta);
         return delta;
     }
 
