@@ -49,6 +49,8 @@ public sealed class TransactionState : IResult, IAsyncDisposable
         Success = false;
     }
 
+    public static implicit operator bool(TransactionState state) => state.Success && state.Transaction is not null;
+
     /// <summary>
     /// Commits all pending changes in the transaction
     /// </summary>
