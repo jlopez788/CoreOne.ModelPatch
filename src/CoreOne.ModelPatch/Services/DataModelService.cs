@@ -91,35 +91,38 @@ public class DataModelService<TContext> : BaseService, IDataModelService<TContex
 
     protected async Task<PatchResult<T>> Process<T>(Func<Task<IResult<T>>> callback, CancellationToken cancellationToken = default)
     {
-        await using var transaction = await Context.BeginTransaction(cancellationToken).ConfigureAwait(false);
-        if (!transaction.Success)
-        {
-            LogResult(transaction, "Failed processing patch");
-            return new PatchResult<T>(transaction);
-        }
+        var strategy = Context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(callback, async (db, state, ct) => {
+            await using var transaction = await Context.BeginTransaction(cancellationToken).ConfigureAwait(false);
+            if (!transaction.Success)
+            {
+                LogResult(transaction, "Failed processing patch");
+                return new PatchResult<T>(transaction);
+            }
 
-        try
-        {
-            var result = await callback().ConfigureAwait(false);
-            if (!result.Success)
+            try
+            {
+                var result = await callback().ConfigureAwait(false);
+                if (!result.Success)
+                {
+                    await transaction.Rollback().ConfigureAwait(false);
+                    LogResult(result, "Failed processing patch");
+                    return new PatchResult<T>(result);
+                }
+
+                var rows = await Context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                await transaction.Commit().ConfigureAwait(false);
+                return new PatchResult<T>(result, rows);
+            }
+            catch (Exception ex)
             {
                 await transaction.Rollback().ConfigureAwait(false);
+                Logger?.LogEntryX(ex, "Unable to save transaction");
+                var result = Result.FromException<T>(ex);
                 LogResult(result, "Failed processing patch");
                 return new PatchResult<T>(result);
             }
-
-            var rows = await Context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            await transaction.Commit().ConfigureAwait(false);
-            return new PatchResult<T>(result, rows);
-        }
-        catch (Exception ex)
-        {
-            await transaction.Rollback().ConfigureAwait(false);
-            Logger?.LogEntryX(ex, "Unable to save transaction");
-            var result = Result.FromException<T>(ex);
-            LogResult(result, "Failed processing patch");
-            return new PatchResult<T>(result);
-        }
+        }, null, cancellationToken);
     }
 
     private static object? ConvertTokenValue(Type type, object? value)
@@ -156,13 +159,14 @@ public class DataModelService<TContext> : BaseService, IDataModelService<TContex
     private (NamedKey key, T model) PatchModel<T>(ModelContext context, T model, Delta delta, NamedKey parentKey, bool isnew)
     {
         var modelKey = new NamedKey();
+        var icore = typeof(ICoreId<,>);
         var ignore = new HashSet<string>(Options.IgnoreFields.Get(context.Type) ?? [], MStringComparer.OrdinalIgnoreCase);
         ignore.AddRange(context.ConcurrencyTokens.Select(p => p.Name));
         ignore.AddRange(context.Keys
             .SelectMany(p => p.Where(k => k.IsPrimaryKey)
                 .Select(k => k.Name)
                 .ToHashSet(MStringComparer.OrdinalIgnoreCase)));
-        context.Properties.Where(p => !ignore.Contains(p.Key) && (p.Value.FPType.IsEnum || p.Value.FPType.IsPrimitive()))
+        context.Properties.Where(p => !ignore.Contains(p.Key) && (p.Value.FPType.IsEnum || p.Value.FPType.IsPrimitive() || p.Value.FPType.Implements(icore)))
             .Select(p => p.Value)
             .Each(ProcessProperty);
         context.GetPrimaryKeys()

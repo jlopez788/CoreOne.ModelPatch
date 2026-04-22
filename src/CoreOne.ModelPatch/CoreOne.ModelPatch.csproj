@@ -5,7 +5,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
-		<Version>1.4.0.1</Version>
+		<Version>1.4.0.2</Version>
 		<Title>CoreOne.ModelPatch</Title>
 		<Authors>Juan Lopez</Authors>
 		<Company>Juan Lopez</Company>
@@ -42,7 +42,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="CoreOne" Version="1.4.0.3" />
+		<PackageReference Include="CoreOne" Version="1.4.0.6" />
 	</ItemGroup>
 
 </Project>
