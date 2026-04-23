@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-namespace CoreOne.ModelPatch.Services;
+namespace CoreOne.ModelPatch;
 
 public interface IDataModelService<TContext> where TContext : DbContext
 {
