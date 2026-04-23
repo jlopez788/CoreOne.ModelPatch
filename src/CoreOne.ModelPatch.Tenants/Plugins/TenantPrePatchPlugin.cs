@@ -1,5 +1,5 @@
 using CoreOne.Identity.Attributes;
-using CoreOne.Identity.Contracts; 
+using CoreOne.Identity.Contracts;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
 
@@ -48,13 +48,9 @@ public class TenantPrePatchPlugin(ITenantProvider tenantProvider, TenantPluginOp
                 return Result.Fail(message);
             }
         }
-        else if (_options.AutoInjectTenantId)
-        {
-            context.Delta[tenantPropertyName] = tenantKey;
-        }
         else
         {
-            return Result.Fail($"Tenant key is required for {context.Type.Name}.");
+            context.Delta[tenantPropertyName] = tenantKey;
         }
 
         if (context.State == CrudType.Updated)

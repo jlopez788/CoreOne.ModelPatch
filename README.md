@@ -482,7 +482,6 @@ services.AddModelPatch();
 
 // Default HttpContext tenant provider
 services.AddTenantSupport(options => {
-    options.AutoInjectTenantId = true;
     options.ThrowOnTenantMismatch = true;
 });
 ```
@@ -491,7 +490,6 @@ Or register a custom tenant provider:
 
 ```csharp
 services.AddTenantSupport<MyTenantProvider>(options => {
-    options.AutoInjectTenantId = true;
     options.ThrowOnTenantMismatch = true;
 });
 ```
