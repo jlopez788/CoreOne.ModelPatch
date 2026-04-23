@@ -9,7 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="CoreOne" Version="1.4.0.3" />
+        <PackageReference Include="CoreOne" Version="1.4.0.6" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
 		<PackageReference Include="MSTest.TestAdapter" Version="3.10.4" />
 		<PackageReference Include="MSTest.TestFramework" Version="3.10.4" />
@@ -31,6 +31,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\CoreOne.ModelPatch\CoreOne.ModelPatch.csproj" />
+        <ProjectReference Include="..\..\src\CoreOne.ModelPatch.Tenants\CoreOne.ModelPatch.Tenants.csproj" />
     </ItemGroup>
 
 </Project>

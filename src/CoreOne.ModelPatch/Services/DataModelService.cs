@@ -1,4 +1,5 @@
 ﻿using CoreOne.Threading.Tasks;
+using CoreOne.ModelPatch.Plugins;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +15,7 @@ public class DataModelService<TContext> : BaseService, IDataModelService<TContex
     protected static readonly ConcurrentDictionary<Type, InvokeCallback> LutProcessModel = new(1, 50);
     protected static readonly Type SetType = typeof(DbSet<>);
     protected readonly TContext Context;
+    private readonly PatchPluginProvider _pluginProvider = default!;
     protected Type ContextType { get; }
     protected ModelOptions Options { get; init; } = default!;
     protected Data<Type, object> Sets { get; init; } = [];
@@ -37,6 +39,22 @@ public class DataModelService<TContext> : BaseService, IDataModelService<TContex
         ContextType = typeof(TContext);
         Context = context;
         Options = options.Value ?? new();
+        // Try to get PatchPluginProvider if registered, otherwise provide a no-op
+        var provider = services.GetService<PatchPluginProvider>();
+        if (provider is null)
+        {
+            // Create provider with core validation plugins for backward compatibility when AddModelPatch isn't used.
+            var logger = services.GetRequiredService<ILogger<PatchPluginProvider>>();
+            var prePatch = new IPrePatchPlugin[] {
+                new StrictPropertyValidationPlugin(options),
+                new ConcurrencyTokenValidationPlugin(options)
+            };
+            var postPatch = new IPostPatchPlugin[] {
+                new ModelStateValidationPlugin(services)
+            };
+            provider = new PatchPluginProvider(prePatch, postPatch, logger);
+        }
+        _pluginProvider = provider;
         var sets = dbsets.Where(p => p.FPType.IsGenericType && p.FPType.GetGenericTypeDefinition() == SetType);
         Sets = sets.ToData(p => p.FPType.GetGenericArguments()[0], p => p.GetValue(context)!);
     }
@@ -125,38 +143,13 @@ public class DataModelService<TContext> : BaseService, IDataModelService<TContex
         }, null, cancellationToken);
     }
 
-    private static object? ConvertTokenValue(Type type, object? value)
-    {
-        if (value is null)
-            return null;
-        if (type == typeof(byte[]))
-        {
-            return value switch {
-                byte[] bytes => bytes,
-                IEnumerable<byte> sequence => sequence.ToArray(),
-                string encoded => Convert.FromBase64String(encoded),
-                _ => value
-            };
-        }
-
-        var parsed = Types.Parse(type, value);
-        return parsed.Success ? parsed.Model : value;
-    }
-
     private static InvokeCallback GetProcessModelInvoke(Type type) => LutProcessModel.GetOrAdd(type, p => {
         var method = typeof(DataModelService<TContext>).GetMethod(nameof(ProcessModel), BindingFlags.NonPublic | BindingFlags.Instance);
         method = method?.MakeGenericMethod(p);
         return MetaType.GetInvokeMethod(method);
     });
 
-    private static bool TokenEquals(Type type, object? left, object? right)
-    {
-        return (left is null && right is null) || (left is not null && right is not null && (type == typeof(byte[])) ?
-            ((byte[])left).SequenceEqual((byte[])right) :
-            left?.Equals(right) == true);
-    }
-
-    private (NamedKey key, T model) PatchModel<T>(ModelContext context, T model, Delta delta, NamedKey parentKey, bool isnew)
+    private (NamedKey key, T model) PatchModel<T>(ModelContext context, T model, Delta delta, NamedKey parentKey, bool isnew) where T : notnull
     {
         var modelKey = new NamedKey();
         var icore = typeof(ICoreId<,>);
@@ -247,29 +240,31 @@ public class DataModelService<TContext> : BaseService, IDataModelService<TContex
             var localSource = set.Local.AsQueryable().FirstOrDefault(expression);
             var entry = localSource is not null ? Context.Entry(localSource) : null;
             var source = await set.FirstOrDefaultAsync(expression, cancellationToken).ConfigureAwait(false);
+            var isnew = source is null;
             if (localSource is not null && source is null)
             { // We matched with a model not yet sent to db but somehow is dup?
                 return new Result<ProcessedModelCollection>([new ModelState(localSource, CrudType.Read)]);
             }
 
-            var isnew = source is null;
-            if (source is not null)
-            {
-                var concurrencyError = ValidateConcurrencyTokens(context, source, delta);
-                if (concurrencyError is not null)
-                    return Result.Fail<ProcessedModelCollection>(concurrencyError);
-            }
+            // Execute pre-patch plugins
+            var processContext = new ModelProcessContext(type, delta, source ?? new(), isnew ? CrudType.Created : CrudType.Updated);
+            var prePatchResult = await _pluginProvider.ExecutePrePatchPluginsAsync(processContext, cancellationToken).ConfigureAwait(false);
+            if (!prePatchResult.Success)
+                return Result.Fail<ProcessedModelCollection>(prePatchResult.Message);
 
             var models = new ProcessedModelCollection();
-            var (key, model) = PatchModel(context, source ?? new(), delta, parentKey, isnew);
-            models.Add(new ModelState(model, isnew ? CrudType.Created : CrudType.Updated));
-            return await model.ValidateModel(ServiceProvider, true)
-                .SelectResultAsync(async () => {
-                    var callback = isnew ? set.Add : new Func<T, EntityEntry<T>>(set.Update);
-                    callback.Invoke(model);
-                    var next = await ProcessChildrenModels(context, delta, key, cancellationToken);
-                    return next.Select(p => models.AddRange(p));
-                });
+            var (key, model) = PatchModel(context, processContext.Model, processContext.Delta, parentKey, isnew);
+
+            // Execute post-patch plugins
+            var postPatchResult = await _pluginProvider.ExecutePostPatchPluginsAsync(processContext, cancellationToken).ConfigureAwait(false);
+            if (!postPatchResult.Success)
+                return Result.Fail<ProcessedModelCollection>(postPatchResult.Message);
+
+            models.Add(new ModelState(model, processContext.State));
+            var callback = isnew ? set.Add : new Func<T, EntityEntry<T>>(set.Update);
+            callback.Invoke((T)model);
+            var next = await ProcessChildrenModels(processContext.Context, processContext.Delta, key, cancellationToken);
+            return next.Select(p => models.AddRange(p));
         }
     }
 
@@ -286,10 +281,6 @@ public class DataModelService<TContext> : BaseService, IDataModelService<TContex
         if (cancellationToken.IsCancellationRequested)
             return Result.Fail<ProcessedModelCollection>("Token has been cancelled");
 
-        var deltaValidationError = ValidateDeltaKeys(context, delta);
-        if (deltaValidationError is not null)
-            return Result.Fail<ProcessedModelCollection>(deltaValidationError);
-
         var callback = GetProcessModelInvoke(context.Type);
         try
         {
@@ -301,50 +292,5 @@ public class DataModelService<TContext> : BaseService, IDataModelService<TContex
             Logger.LogEntryX(ex, $"Processing unknown model: {context.Type}");
             throw;
         }
-    }
-
-    private string? ValidateConcurrencyTokens<T>(ModelContext context, T model, Delta delta)
-    {
-        if (context.ConcurrencyTokens.Count == 0)
-            return null;
-
-        var providedTokens = context.ConcurrencyTokens
-            .Where(p => delta.ContainsKey(Options.GetPreferredName(p)) || delta.ContainsKey(p.Name))
-            .ToList();
-
-        if (Options.RequireConcurrencyTokenForUpdates && providedTokens.Count == 0)
-            return $"Concurrency token is required for updates to {context.Type.Name}";
-        if (!Options.ValidateConcurrencyTokens || providedTokens.Count == 0)
-            return null;
-
-        foreach (var token in providedTokens)
-        {
-            var fieldName = Options.GetPreferredName(token);
-            var rawValue = delta.TryGetValue(fieldName, out object? value) ? value : delta[token.Name];
-            var expected = token.GetValue(model);
-            var incoming = ConvertTokenValue(token.FPType, rawValue);
-            if (!TokenEquals(token.FPType, expected, incoming))
-                return $"Concurrency token mismatch for {context.Type.Name}.{token.Name}";
-        }
-
-        return null;
-    }
-
-    private string? ValidateDeltaKeys(ModelContext context, Delta delta)
-    {
-        if (!Options.StrictPropertyMatching || delta.Count == 0)
-            return null;
-
-        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var metadata in context.Properties.Values)
-        {
-            allowed.Add(metadata.Name);
-            allowed.Add(Options.GetPreferredName(metadata));
-        }
-
-        var unknown = delta.Keys.Where(p => !allowed.Contains(p)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        return unknown.Count > 0 ?
-            $"Unknown fields for {context.Type.Name}: {string.Join(", ", unknown.OrderBy(p => p, StringComparer.OrdinalIgnoreCase))}" :
-            null;
     }
 }

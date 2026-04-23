@@ -1,4 +1,5 @@
 ﻿using CoreOne.ModelPatch.Services;
+using CoreOne.ModelPatch.Plugins;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -24,6 +25,10 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped(typeof(IDataModelService<>), typeof(DataModelService<>));
         services.TryAddScoped<IKeyGenerator, GuidGenerator>();
         services.TryAddScoped(typeof(IKeyGenerator<>), typeof(StronglyTypedIdGenerator<>));
+        services.TryAddScoped<PatchPluginProvider>();
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IPrePatchPlugin, StrictPropertyValidationPlugin>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IPrePatchPlugin, ConcurrencyTokenValidationPlugin>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IPostPatchPlugin, ModelStateValidationPlugin>());
         return services;
     }
 }

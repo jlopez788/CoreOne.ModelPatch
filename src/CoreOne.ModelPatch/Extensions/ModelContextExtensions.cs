@@ -58,7 +58,7 @@ internal static class ModelContextExtensions
     public static List<List<Metadata>> GetPrimaryKeys(this ModelContext context) => [.. context.Keys.Select(p => p.Select(m => context.Properties.Get(m.Name))
         .ToList(p => p != Metadata.Empty))];
 
-    public static IResult<Expression<Func<T, bool>>> GetPrimaryKeysExpression<T>(this ModelContext context, ModelOptions options, Delta model)
+    public static IResult<Expression<Func<T, bool>>> GetPrimaryKeysExpression<T>(this ModelContext context, ModelOptions options, Delta delta)
     {
         if (context.IsValid)
         {
@@ -72,7 +72,7 @@ internal static class ModelContextExtensions
             object? GetValue(Metadata meta)
             {
                 var name = options.GetPreferredName(meta);
-                var ovalue = model.Get(name);
+                var ovalue = delta.Get(name);
                 var value = Types.Parse(meta.FPType, ovalue);
                 return value.Model ?? meta.FPType.GetDefault();
             }

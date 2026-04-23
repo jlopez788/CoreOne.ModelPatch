@@ -7,6 +7,7 @@ global using CoreOne.Models;
 global using CoreOne.Reflection;
 global using CoreOne.Results;
 global using CoreOne.Services;
+global using Microsoft.Extensions.Logging;
 global using System.Collections;
 global using System.ComponentModel.DataAnnotations;
 global using System.Linq.Expressions;

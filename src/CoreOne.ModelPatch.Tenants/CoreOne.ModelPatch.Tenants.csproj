@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net9.0</TargetFrameworks>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <Version>0.9.0</Version>
+        <Title>CoreOne.ModelPatch</Title>
+        <Authors>Juan Lopez</Authors>
+        <Company>Juan Lopez</Company>
+        <PackageProjectUrl>https://github.com/jlopez788/CoreOne.ModelPatch</PackageProjectUrl>
+        <PackageId>CoreOne.ModelPatch.Tenants</PackageId>
+        <Product>CoreOne.ModelPatch.Tenants</Product>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\CoreOne.ModelPatch\CoreOne.ModelPatch.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="CoreOne" Version="1.4.0.6" />
+        <PackageReference Include="CoreOne.Identity" Version="1.2.2" />
+        <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.2.2" />
+        <PackageReference Include="Microsoft.AspNetCore.Routing" Version="2.2.2" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+      <PackageReference Include="Microsoft.EntityFrameworkCore">
+        <Version>10.0.5</Version>
+      </PackageReference>
+    </ItemGroup>
+
+</Project>

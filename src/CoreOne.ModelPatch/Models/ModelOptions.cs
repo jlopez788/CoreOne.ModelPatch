@@ -38,6 +38,11 @@ public class ModelOptions
     public bool RequireConcurrencyTokenForUpdates { get; set; }
 
     /// <summary>
+    /// Plugin types to exclude from the patch pipeline for this context
+    /// </summary>
+    public HashSet<Type> ExcludePlugins { get; set; } = [];
+
+    /// <summary>
     /// Initializes options with default configuration
     /// </summary>
     public ModelOptions()

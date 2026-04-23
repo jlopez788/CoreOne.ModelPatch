@@ -16,6 +16,8 @@ Perfect for RESTful APIs, microservices, and any scenario requiring partial enti
 - **Custom Property Name Mapping** - Support custom property name resolution through `ModelOptions.NameResolver`
 - **Strict Field Validation (Optional)** - Fail fast on unknown delta fields to catch typos early
 - **Optimistic Concurrency (Optional)** - Validate `[Timestamp]` and `[ConcurrencyCheck]` tokens during updates
+- **Extensible Plugin Pipeline** - Ordered pre/post patch plugins for validation and custom behavior
+- **Optional Multi-Tenancy Package** - Tenant-aware pre-patch validation and tenant key injection
 - **Automatic Key Generation** - Generates primary keys when missing (GUID by default, extensible via `IKeyGenerator`)
 - **Type-Safe Delta Operations** - Strongly-typed `Delta<T>` with compile-time safety
 - **DTO-Friendly Delta Mapping** - Map request DTOs into `Delta<TEntity>` with explicit field selection
@@ -35,10 +37,16 @@ Or via the NuGet Package Manager:
 Install-Package CoreOne.ModelPatch
 ```
 
+Optional tenant support package:
+
+```bash
+dotnet add package CoreOne.ModelPatch.Tenants
+```
+
 **Requirements:**
 - net9.0 or net10.0
-- EF Core 9.0.x on net9.0, EF Core 10.0.x on net10.0
-- CoreOne 1.4.0.3 (automatically installed as dependency)
+- EF Core 9.0.9+ on net9.0, EF Core 10.0.5+ on net10.0
+- CoreOne 1.4.0.6+ (automatically installed as dependency)
 
 ## 🏗️ Setup
 
@@ -247,6 +255,11 @@ var delta = new Delta<Blog> {
 
 var result = await _dataService.Patch(delta, cancellationToken);
 // Fails with ResultType.Fail when token is stale or missing (if required)
+
+// Supported incoming token formats include:
+// - byte[]
+// - base64 string (for byte[] tokens)
+// - IEnumerable<byte>
 ```
 
 ## 🌐 ASP.NET Core Web API Integration
@@ -442,6 +455,60 @@ public sealed class NoteIdKeyGenerator : IKeyGenerator<NoteId>
 For runtime patching, the built-in primary-key auto-generation path currently targets `Guid`/`Guid?` key properties.
 For other key property types, include the key value in the incoming delta/model payload or provide a custom patch pipeline.
 
+### Plugin Pipeline
+
+Plugins execute in descending order by `Order` and can fail the patch early.
+
+Built-in plugins registered by `AddModelPatch(...)`:
+
+- `StrictPropertyValidationPlugin` (`IPrePatchPlugin`, `Order = 1001`)
+- `ConcurrencyTokenValidationPlugin` (`IPrePatchPlugin`, `Order = 800`)
+- `ModelStateValidationPlugin` (`IPostPatchPlugin`, `Order = 1000`)
+
+Register custom plugins using DI enumerable registration:
+
+```csharp
+services.AddModelPatch();
+services.TryAddEnumerable(ServiceDescriptor.Scoped<IPrePatchPlugin, MyCustomPrePatchPlugin>());
+services.TryAddEnumerable(ServiceDescriptor.Scoped<IPostPatchPlugin, MyCustomPostPatchPlugin>());
+```
+
+### Multi-Tenancy (Optional Package)
+
+`CoreOne.ModelPatch.Tenants` adds a high-priority pre-patch tenant plugin (`Order = 9999`) to enforce tenant ownership and inject tenant keys.
+
+```csharp
+services.AddModelPatch();
+
+// Default HttpContext tenant provider
+services.AddTenantSupport(options => {
+    options.AutoInjectTenantId = true;
+    options.ThrowOnTenantMismatch = true;
+});
+```
+
+Or register a custom tenant provider:
+
+```csharp
+services.AddTenantSupport<MyTenantProvider>(options => {
+    options.AutoInjectTenantId = true;
+    options.ThrowOnTenantMismatch = true;
+});
+```
+
+Mark tenant-bound entities with CoreOne.Identity attributes:
+
+```csharp
+[TenantOwned]
+public class Blog
+{
+    [Key] public Guid Id { get; set; }
+
+    [TenantKey]
+    public string TenantId { get; set; } = string.Empty;
+}
+```
+
 ## 🎯 How It Works
 
 ### The Delta Pattern
@@ -474,12 +541,21 @@ delta.Remove("UpdatedAt");
 1. **Delta Conversion** - Convert your model to `Delta<T>` using `.ToDelta()`
 2. **Transaction Begin** - Library wraps operation in EF Core transaction
 3. **Entity Resolution** - Finds existing entities by primary/unique keys
-4. **Property Patching** - Updates only properties present in delta
-5. **Relationship Processing** - Recursively processes child collections
-6. **Foreign Key Injection** - Automatically sets parent foreign keys in children
-7. **Unique Constraint Handling** - Updates existing records with unique values
-8. **Validation** - EF Core validates changes
-9. **Transaction Commit** - Saves all changes atomically (or rolls back on error)
+4. **Pre-Patch Plugins** - Runs ordered pre-patch plugins (strict fields, concurrency, custom plugins)
+5. **Property Patching** - Updates only properties present in delta
+6. **Relationship Processing** - Recursively processes child collections
+7. **Foreign Key Injection** - Automatically sets parent foreign keys in children
+8. **Unique Constraint Handling** - Updates existing records with unique values
+9. **Post-Patch Plugins** - Runs ordered post-patch plugins (model validation, custom plugins)
+10. **Transaction Commit** - Saves all changes atomically (or rolls back on error)
+
+### Key Discovery Rules
+
+Entity identity is discovered in this order:
+
+1. Properties marked with `[Key]`
+2. Unique index definitions from `[Index(..., IsUnique = true)]`
+3. Convention fallback names: `Id`, `Key`, `{EntityName}Id`, `{EntityName}Key`
 
 ### Relationship Discovery
 
@@ -790,12 +866,18 @@ var patchResult = await dataService.Patch(delta, token);
 
 ## ⬆️ Upgrade Notes
 
-### Current 1.4.0 Notes
+### Current Notes
 
 - `IKeyGenerator.Create()` now returns `KeyModel`.
 - `IKeyGenerator<TKey>` support is available for strongly typed key scenarios.
 - `AddModelPatch(...)` registers `IDataModelService<TContext>`, `IKeyGenerator`, and open-generic `IKeyGenerator<TKey>`.
 - Concurrency token validation options (`ValidateConcurrencyTokens`, `RequireConcurrencyTokenForUpdates`) are part of `ModelOptions`.
+
+### Current 1.4.0.2 Notes
+
+- Core package version is `1.4.0.2`.
+- CoreOne dependency version is `1.4.0.6`.
+- Optional tenant package is `CoreOne.ModelPatch.Tenants` (`0.9.0`).
 
 ## 🧪 Testing
 
@@ -818,8 +900,9 @@ See [COVERAGE_REPORT.md](COVERAGE_REPORT.md) for detailed coverage metrics.
 
 ## 🔗 Dependencies
 
-- **[CoreOne](https://www.nuget.org/packages/CoreOne/)** (1.4.0.3+) - Provides `Data<TKey, TValue>`, `IResult<T>`, reflection utilities
-- **Microsoft.EntityFrameworkCore** 9.0.x / 10.0.x - EF Core framework matched to the target framework
+- **[CoreOne](https://www.nuget.org/packages/CoreOne/)** (1.4.0.6+) - Provides `Data<TKey, TValue>`, `IResult<T>`, reflection utilities
+- **Microsoft.EntityFrameworkCore** 9.0.9+ / 10.0.5+ - EF Core framework matched to the target framework
+- **[CoreOne.ModelPatch.Tenants](https://www.nuget.org/packages/CoreOne.ModelPatch.Tenants/)** (optional) - Tenant-aware pre-patch validation and tenant injection
 
 ## 🤝 Contributing
 
@@ -851,5 +934,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 **Author:** Juan Lopez  
-**Version:** 1.4.0
+**Version:** 1.4.0.2
 **Target Frameworks:** net9.0, net10.0
