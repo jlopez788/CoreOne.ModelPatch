@@ -7,18 +7,24 @@ public class ModelAttributeValidationPlugin : IPrePatchPlugin
 
     public ValueTask<IResult> Execute(ModelProcessContext context, CancellationToken cancellationToken = default)
     {
-        var properties = (from prop in context.Context.Properties
-                          let attribute = prop.Value.GetCustomAttribute<PatchRestrictAttribute>()
-                          where attribute is not null
-                          select new Info(prop.Value, attribute)).ToList();
-
-        if (properties.Count > 0)
+        if (context.State == CrudType.Updated)
         {
-            foreach (var property in properties)
+            var properties = (from prop in context.Context.Properties
+                              let attribute = prop.Value.GetCustomAttribute<PatchRestrictAttribute>()
+                              where attribute is not null
+                              select new Info(prop.Value, attribute)).ToList();
+            if (properties.Count > 0)
             {
-                if (property.Attribute.Scope == PatchRestrictionType.DenyUpdateSilently)
+                foreach (var property in properties)
                 {
-                    context.Delta.Remove(property.Property.Name);
+                    if (property.Attribute.Scope == PatchRestrictionType.DenyUpdateSilently)
+                    {
+                        context.Delta.Remove(property.Property.Name);
+                    }
+                    else if (property.Attribute.Scope == PatchRestrictionType.DenyUpdateBadRequest)
+                    {
+                        return ValueTask.FromResult(Result.Fail($"Property {property.Property.Name} is not allowed to be updated."));
+                    }
                 }
             }
         }
