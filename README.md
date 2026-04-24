@@ -393,6 +393,13 @@ You can still provide a custom `NameResolver` when you need non-attribute-based 
 - `RequireConcurrencyTokenForUpdates = false`
 - `KeyGenerator = GuidGenerator` (creates version 7 GUID keys wrapped in `KeyModel`)
 
+Additional options:
+
+- `KeyGenerators: Data<Type, IKeyGenerator>` — per-type generators checked before `KeyGenerator`
+- `IgnoreFields: DataHashSet<Type, string>` — properties excluded from patches per entity type
+- `Comparer: Data<Type, IEqualityComparer>` — type-specific equality comparers
+- `ExcludePlugins: HashSet<Type>` — plugin types to skip per `ModelOptions` context
+
 ### Strict Field Validation
 
 ```csharp
@@ -463,6 +470,7 @@ Built-in plugins registered by `AddModelPatch(...)`:
 
 - `StrictPropertyValidationPlugin` (`IPrePatchPlugin`, `Order = 1001`)
 - `ConcurrencyTokenValidationPlugin` (`IPrePatchPlugin`, `Order = 800`)
+- `ModelAttributeValidationPlugin` (`IPrePatchPlugin`, `Order = 100`) — enforces `[PatchRestrict]` rules
 - `ModelStateValidationPlugin` (`IPostPatchPlugin`, `Order = 1000`)
 
 Register custom plugins using DI enumerable registration:
@@ -472,6 +480,28 @@ services.AddModelPatch();
 services.TryAddEnumerable(ServiceDescriptor.Scoped<IPrePatchPlugin, MyCustomPrePatchPlugin>());
 services.TryAddEnumerable(ServiceDescriptor.Scoped<IPostPatchPlugin, MyCustomPostPatchPlugin>());
 ```
+
+### Restricting Property Updates
+
+Apply `[PatchRestrict]` to entity properties to control what can be patched:
+
+```csharp
+public class User
+{
+    [Key] public Guid Id { get; set; }
+    public string Name { get; set; }
+
+    // Silently removed from delta before patching
+    [PatchRestrict(PatchRestrictionType.DenyUpdateSilently)]
+    public DateTime CreatedAt { get; set; }
+
+    // Fails the patch if present in the delta
+    [PatchRestrict(PatchRestrictionType.DenyUpdateBadRequest)]
+    public string Role { get; set; }
+}
+```
+
+Processed by `ModelAttributeValidationPlugin` (Order: 100).
 
 ### Multi-Tenancy (Optional Package)
 
@@ -740,7 +770,7 @@ public enum CrudType
 - Entities must have parameterless constructors
 - Navigation properties must be settable (at least `init` accessors)
 - Circular references in object graphs may cause issues (design your models carefully)
-- Currently supports INSERT and UPDATE operations (DELETE planned for future)
+- Currently supports INSERT and UPDATE operations
 
 ## 🧰 Troubleshooting Cookbook
 
@@ -870,12 +900,15 @@ var patchResult = await dataService.Patch(delta, token);
 - `IKeyGenerator<TKey>` support is available for strongly typed key scenarios.
 - `AddModelPatch(...)` registers `IDataModelService<TContext>`, `IKeyGenerator`, and open-generic `IKeyGenerator<TKey>`.
 - Concurrency token validation options (`ValidateConcurrencyTokens`, `RequireConcurrencyTokenForUpdates`) are part of `ModelOptions`.
+- `ModelAttributeValidationPlugin` enforces `[PatchRestrict]` attribute rules on entity properties.
+- `ModelOptions.ExcludePlugins` allows disabling specific built-in plugins per context.
 
-### Current 1.4.0.2 Notes
+### Package Versions
 
-- Core package version is `1.4.0.2`.
-- CoreOne dependency version is `1.4.0.6`.
-- Optional tenant package is `CoreOne.ModelPatch.Tenants` (`0.9.0`).
+- **CoreOne.ModelPatch**: `1.5.0`
+- **CoreOne.ModelPatch.Abstract**: `1.0.0`
+- **CoreOne.ModelPatch.Tenants**: `1.0.0`
+- **CoreOne dependency**: `1.4.0.6`
 
 ## 🧪 Testing
 
@@ -932,5 +965,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 **Author:** Juan Lopez  
-**Version:** 1.4.0.2
+**Version:** 1.5.0
 **Target Frameworks:** net9.0, net10.0
