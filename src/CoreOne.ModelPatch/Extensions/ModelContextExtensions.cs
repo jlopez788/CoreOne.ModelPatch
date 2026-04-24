@@ -95,6 +95,8 @@ internal static class ModelContextExtensions
         return new Result<Expression<Func<T, bool>>>(ResultType.Fail, $"{typeof(T).FullName} must have at least one Key property");
     }
 
+    public static IResult<Expression<Func<T, bool>>> GetPrimaryKeysExpression<T>(this ModelProcessContext context, ModelOptions options) where T : class, new() => context.Context.GetPrimaryKeysExpression<T>(options, context.Delta);
+
     private static bool IsCollectionType(Type? type) => type is not null && (
             (type.IsGenericType && type.GetGenericTypeDefinition() == ICollectionT) // Direct match for generic ICollection<T>
             || ICollection.IsAssignableFrom(type) // Implements non-generic ICollection

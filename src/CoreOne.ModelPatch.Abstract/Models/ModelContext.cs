@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
+using System.Reflection;
 
-namespace CoreOne.ModelPatch.Models;
+namespace CoreOne.ModelPatch.Abstract.Models;
 
 /// <summary>
 /// Cached metadata for an entity type including properties, keys, and relationships

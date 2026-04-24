@@ -1,4 +1,5 @@
 using CoreOne.Identity.Contracts;
+using CoreOne.ModelPatch.Abstract;
 using CoreOne.ModelPatch.Tenants.Plugins;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;

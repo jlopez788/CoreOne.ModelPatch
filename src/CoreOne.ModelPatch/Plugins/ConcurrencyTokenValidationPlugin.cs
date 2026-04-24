@@ -1,3 +1,4 @@
+using CoreOne.ModelPatch.Services;
 using Microsoft.Extensions.Options;
 
 namespace CoreOne.ModelPatch.Plugins;
@@ -7,7 +8,9 @@ namespace CoreOne.ModelPatch.Plugins;
 /// </summary>
 public class ConcurrencyTokenValidationPlugin(IOptions<ModelOptions> options) : IPrePatchPlugin
 {
-    private readonly ModelOptions _options = options.Value ?? new();
+    private readonly ModelOptions _options = options.Value ?? new() {
+        KeyGenerator = new GuidGenerator()
+    };
     public int Order => 800;
 
     public ValueTask<IResult> Execute(ModelProcessContext context, CancellationToken cancellationToken = default)

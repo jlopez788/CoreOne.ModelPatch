@@ -1,4 +1,4 @@
-namespace CoreOne.ModelPatch.Models;
+namespace CoreOne.ModelPatch.Abstract.Models;
 
 public class ModelProcessContext(ModelContext context, Delta delta, object model, CrudType state)
 {
@@ -8,6 +8,4 @@ public class ModelProcessContext(ModelContext context, Delta delta, object model
     public object Model { get; } = model;
     public CrudType State { get; } = state;
     public Type Type => Context.Type;
-
-    public IResult<Expression<Func<T, bool>>> GetPrimaryKeysExpression<T>(ModelOptions options) where T : class, new() => Context.GetPrimaryKeysExpression<T>(options, Delta);
 }

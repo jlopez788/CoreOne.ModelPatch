@@ -1,4 +1,4 @@
-﻿namespace CoreOne.ModelPatch.Models;
+﻿namespace CoreOne.ModelPatch.Abstract.Models;
 
 /// <summary>
 /// Result of a patch operation with metadata about affected rows

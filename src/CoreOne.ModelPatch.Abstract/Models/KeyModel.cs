@@ -1,4 +1,4 @@
-﻿namespace CoreOne.ModelPatch.Models;
+﻿namespace CoreOne.ModelPatch.Abstract.Models;
 
 public class KeyModel(Type type, object model)
 {

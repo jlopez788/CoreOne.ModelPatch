@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net9.0</TargetFrameworks>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <Version>1.0.0</Version>
+        <Title>CoreOne.ModelPatch.Abstract</Title>
+        <Authors>Juan Lopez</Authors>
+        <Company>Juan Lopez</Company>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageProjectUrl>https://github.com/jlopez788/CoreOne.ModelPatch</PackageProjectUrl>
+        <PackageId>CoreOne.ModelPatch.Abstract</PackageId>
+        <Product>CoreOne.ModelPatch.Abstract</Product>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.9" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="CoreOne" Version="1.4.0.6" />
+    </ItemGroup>
+</Project>

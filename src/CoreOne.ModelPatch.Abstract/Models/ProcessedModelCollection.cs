@@ -1,4 +1,6 @@
-﻿namespace CoreOne.ModelPatch.Models;
+﻿using System.Collections;
+
+namespace CoreOne.ModelPatch.Abstract.Models;
 
 /// <summary>
 /// Collection of entities processed during a patch operation with CRUD operation metadata
@@ -28,13 +30,13 @@ public class ProcessedModelCollection : IReadOnlyList<ModelState>
     /// <returns></returns>
     public override string ToString() => $"Count: {Count}";
 
-    internal ProcessedModelCollection Add(ModelState state)
+    public ProcessedModelCollection Add(ModelState state)
     {
         States.Add(state);
         return this;
     }
 
-    internal ProcessedModelCollection AddRange(ProcessedModelCollection? collection)
+    public ProcessedModelCollection AddRange(ProcessedModelCollection? collection)
     {
         collection.Each(p => Add(p));
         return this;

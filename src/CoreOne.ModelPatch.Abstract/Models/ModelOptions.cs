@@ -1,6 +1,6 @@
-﻿using CoreOne.ModelPatch.Services;
+﻿using System.Collections;
 
-namespace CoreOne.ModelPatch.Models;
+namespace CoreOne.ModelPatch.Abstract.Models;
 
 /// <summary>
 /// Configuration options for controlling delta processing and entity patching behavior
@@ -18,7 +18,11 @@ public class ModelOptions
     /// <summary>
     /// Strategy for generating primary key values when creating new entities
     /// </summary>
-    public IKeyGenerator KeyGenerator { get; set; } = new GuidGenerator();
+    public required IKeyGenerator KeyGenerator { get; set; }
+    /// <summary>
+    /// Per-type key generators. Checked before <see cref="KeyGenerator"/> when resolving a generator for a specific key type.
+    /// </summary>
+    public Data<Type, IKeyGenerator> KeyGenerators { get; } = [];
     /// <summary>
     /// Custom function to map property metadata to delta property names (e.g., for JSON attribute support)
     /// </summary>

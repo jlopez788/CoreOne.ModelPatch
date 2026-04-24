@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace CoreOne.ModelPatch.Models;
+namespace CoreOne.ModelPatch.Abstract.Models;
 
 /// <summary>
 /// Represents a processed entity with information about what operation was performed

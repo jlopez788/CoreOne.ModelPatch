@@ -1,4 +1,4 @@
-﻿namespace CoreOne.ModelPatch.Models;
+﻿namespace CoreOne.ModelPatch.Abstract.Models;
 
 /// <summary>
 /// Represents a parent-child relationship for automatic foreign key injection

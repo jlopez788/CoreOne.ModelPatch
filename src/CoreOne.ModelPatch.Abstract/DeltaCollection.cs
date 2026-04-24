@@ -1,4 +1,4 @@
-﻿namespace CoreOne.ModelPatch;
+﻿namespace CoreOne.ModelPatch.Abstract;
 
 /// <summary>
 /// Collection of deltas for batch patching multiple entities of the same type

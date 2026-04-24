@@ -1,5 +1,7 @@
 using CoreOne.Identity.Attributes;
 using CoreOne.Identity.Contracts;
+using CoreOne.ModelPatch.Abstract;
+using CoreOne.ModelPatch.Abstract.Models;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
 
@@ -11,8 +13,8 @@ namespace CoreOne.ModelPatch.Tenants.Plugins;
 /// </summary>
 public class TenantPrePatchPlugin(ITenantProvider tenantProvider, TenantPluginOptions options, ILogger<TenantPrePatchPlugin> logger) : IPrePatchPlugin
 {
-    private readonly ITenantProvider _tenantProvider = tenantProvider ?? throw new ArgumentNullException(nameof(tenantProvider));
     private readonly TenantPluginOptions _options = options ?? new TenantPluginOptions();
+    private readonly ITenantProvider _tenantProvider = tenantProvider ?? throw new ArgumentNullException(nameof(tenantProvider));
     public int Order => 9999; // Run early in the pipeline, after patch is applied
 
     public async ValueTask<IResult> Execute(ModelProcessContext context, CancellationToken cancellationToken = default)
@@ -34,7 +36,7 @@ public class TenantPrePatchPlugin(ITenantProvider tenantProvider, TenantPluginOp
         if (tenantKey is null)
         {
             logger.LogWarning("Unable to resolve tenant ID for validation of entity type {EntityType}", context.Type.Name);
-            return Result.Fail("Invalid tenant key");
+            return Result.Fail("Tenant key is required");
         }
 
         var tenantPropertyName = tenantInfo.metadata.Name;

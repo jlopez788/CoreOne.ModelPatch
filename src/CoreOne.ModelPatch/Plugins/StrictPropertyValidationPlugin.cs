@@ -1,3 +1,4 @@
+using CoreOne.ModelPatch.Services;
 using Microsoft.Extensions.Options;
 
 namespace CoreOne.ModelPatch.Plugins;
@@ -7,7 +8,7 @@ namespace CoreOne.ModelPatch.Plugins;
 /// </summary>
 public class StrictPropertyValidationPlugin(IOptions<ModelOptions> options) : IPrePatchPlugin
 {
-    private readonly ModelOptions _options = options.Value ?? new();
+    private readonly ModelOptions _options = options.Value ?? new() { KeyGenerator = new GuidGenerator() };
     public int Order => 1001;
 
     public ValueTask<IResult> Execute(ModelProcessContext context, CancellationToken cancellationToken = default)
@@ -29,9 +30,8 @@ public class StrictPropertyValidationPlugin(IOptions<ModelOptions> options) : IP
             .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (unknown.Count == 0)
-            return ValueTask.FromResult<IResult>(Result.Ok);
-
-        return ValueTask.FromResult(Result.Fail($"Unknown fields for {context.Type.Name}: {string.Join(", ", unknown)}"));
+        return unknown.Count == 0 ?
+            ValueTask.FromResult(Result.Ok) :
+            ValueTask.FromResult(Result.Fail($"Unknown fields for {context.Type.Name}: {string.Join(", ", unknown)}"));
     }
 }

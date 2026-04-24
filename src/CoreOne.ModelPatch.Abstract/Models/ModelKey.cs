@@ -1,4 +1,4 @@
-﻿namespace CoreOne.ModelPatch.Models;
+﻿namespace CoreOne.ModelPatch.Abstract.Models;
 
 /// <summary>
 /// Represents a key property (primary or unique index) for entity identification

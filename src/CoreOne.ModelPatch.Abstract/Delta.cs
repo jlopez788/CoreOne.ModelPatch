@@ -1,4 +1,4 @@
-﻿namespace CoreOne.ModelPatch;
+﻿namespace CoreOne.ModelPatch.Abstract;
 
 /// <summary>
 /// Case-insensitive dictionary that holds partial model data for PATCH operations

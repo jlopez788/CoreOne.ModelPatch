@@ -1,4 +1,4 @@
-namespace CoreOne.ModelPatch.Models;
+namespace CoreOne.ModelPatch.Abstract;
 
 /// <summary>
 /// Base interface for all model patch plugins.

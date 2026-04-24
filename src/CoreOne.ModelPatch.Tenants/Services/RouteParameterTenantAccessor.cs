@@ -5,7 +5,9 @@ namespace CoreOne.ModelPatch.Tenants.Services;
 
 public class RouteParameterTenantAccessor(string parameterName) : HttpContexTenatAccessor
 {
-    protected override object? GetTenantKeyCore(HttpContext context)
+    public override string ToString() => parameterName;
+
+    protected override object? OnGetTenantKey(HttpContext context)
     {
         return !string.IsNullOrEmpty(parameterName) &&
             context.GetRouteValue(parameterName) is not null ?

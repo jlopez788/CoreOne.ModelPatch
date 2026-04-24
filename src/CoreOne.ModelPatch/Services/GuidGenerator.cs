@@ -3,7 +3,7 @@
 /// <summary>
 /// Default key generator that produces time-ordered version 7 GUIDs
 /// </summary>
-public class GuidGenerator : IKeyGenerator
+public class GuidGenerator : IKeyGenerator<Guid>
 {
-    public KeyModel Create() => KeyModel.Create(Guid.CreateVersion7());
+    public Guid Create() => Guid.CreateVersion7();
 }

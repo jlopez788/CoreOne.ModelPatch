@@ -1,3 +1,5 @@
+using CoreOne.ModelPatch.Abstract.Attributes;
+
 namespace CoreOne.ModelPatch.Plugins;
 
 /// <summary>

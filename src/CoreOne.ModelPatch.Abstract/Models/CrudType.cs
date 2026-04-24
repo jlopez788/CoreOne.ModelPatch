@@ -1,4 +1,4 @@
-﻿namespace CoreOne.ModelPatch.Models;
+﻿namespace CoreOne.ModelPatch.Abstract.Models;
 
 /// <summary>
 /// Indicates the type of operation performed on an entity during patch processing

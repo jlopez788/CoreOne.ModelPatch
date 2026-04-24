@@ -5,7 +5,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
-		<Version>1.4.0.2</Version>
+		<Version>1.5.0</Version>
 		<Title>CoreOne.ModelPatch</Title>
 		<Authors>Juan Lopez</Authors>
 		<Company>Juan Lopez</Company>
@@ -43,6 +43,10 @@
 
 	<ItemGroup>
 		<PackageReference Include="CoreOne" Version="1.4.0.6" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\CoreOne.ModelPatch.Abstract\CoreOne.ModelPatch.Abstract.csproj" />
 	</ItemGroup>
 
 </Project>

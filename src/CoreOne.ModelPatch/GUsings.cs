@@ -1,6 +1,9 @@
 ﻿global using CoreOne.Collections;
 global using CoreOne.Comparers;
 global using CoreOne.Extensions;
+global using CoreOne.ModelPatch.Abstract;
+global using CoreOne.ModelPatch.Abstract.Attributes;
+global using CoreOne.ModelPatch.Abstract.Models;
 global using CoreOne.ModelPatch.Extensions;
 global using CoreOne.ModelPatch.Models;
 global using CoreOne.Models;
@@ -9,7 +12,6 @@ global using CoreOne.Results;
 global using CoreOne.Services;
 global using Microsoft.Extensions.Logging;
 global using System.Collections;
-global using System.ComponentModel.DataAnnotations;
 global using System.Linq.Expressions;
 global using System.Reflection;
 global using ReferenceEqualityComparer = CoreOne.Comparers.ReferenceEqualityComparer;

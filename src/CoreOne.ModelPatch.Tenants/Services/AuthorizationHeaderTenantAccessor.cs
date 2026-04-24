@@ -4,7 +4,9 @@ namespace CoreOne.ModelPatch.Tenants.Services;
 
 public class AuthorizationHeaderTenantAccessor(string headerName) : HttpContexTenatAccessor
 {
-    protected override object? GetTenantKeyCore(HttpContext context)
+    public override string ToString() => headerName;
+
+    protected override object? OnGetTenantKey(HttpContext context)
     {
         return !string.IsNullOrEmpty(headerName) &&
             context.Request.Headers.TryGetValue(headerName, out var headerValue) ?

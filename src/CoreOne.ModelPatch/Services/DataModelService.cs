@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
-using System.Text;
 
 namespace CoreOne.ModelPatch.Services;
 
@@ -14,8 +13,12 @@ public class DataModelService<TContext> : BaseService, IDataModelService<TContex
     protected const BindingFlags Flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy;
     protected static readonly ConcurrentDictionary<Type, InvokeCallback> LutProcessModel = new(1, 50);
     protected static readonly Type SetType = typeof(DbSet<>);
-    protected readonly TContext Context;
     private readonly PatchPluginProvider _pluginProvider = default!;
+    private IServiceProvider _services = default!;
+    /// <summary>
+    /// Context of type TContext to perform operations on
+    /// </summary>
+    public TContext Context { get; }
     protected Type ContextType { get; }
     protected ModelOptions Options { get; init; } = default!;
     protected Data<Type, object> Sets { get; init; } = [];
@@ -38,7 +41,12 @@ public class DataModelService<TContext> : BaseService, IDataModelService<TContex
         var dbsets = MetaType.GetMetadatas(typeof(TContext), Flags);
         ContextType = typeof(TContext);
         Context = context;
-        Options = options.Value ?? new();
+        Options = options.Value ?? new() {
+            KeyGenerator = new GuidGenerator()
+        };
+        _services = services;
+        // Seed GuidGenerator as the default per-type generator for Guid primary keys
+        Options.KeyGenerators.TryAdd(typeof(Guid), new GuidGenerator());
         // Try to get PatchPluginProvider if registered, otherwise provide a no-op
         var provider = services.GetService<PatchPluginProvider>();
         if (provider is null)
@@ -164,7 +172,7 @@ public class DataModelService<TContext> : BaseService, IDataModelService<TContex
             .Each(ProcessProperty);
         context.GetPrimaryKeys()
             .SelectMany(p => p)
-            .Where(p => p.FPType == Types.Guid || p.FPType == Types.NGuid)
+            .Where(p => p.FPType == Types.Guid || p.FPType == Types.NGuid || p.FPType.Implements(icore))
             .Each(CheckPrimaryKeys);
 
         return (modelKey, model);
@@ -194,10 +202,10 @@ public class DataModelService<TContext> : BaseService, IDataModelService<TContex
                 if (delta.TryGetValue(metadata.Name, out key))
                 {
                     var parsed = Types.Parse(metadata.FPType, key);
-                    key = parsed.Success ? parsed.Model : Options.KeyGenerator.Create();
+                    key = parsed.Success ? parsed.Model : Options.GetKeyGenerator(_services, metadata.FPType).Create().Model;
                 }
                 else
-                    key = Options.KeyGenerator.Create();
+                    key = Options.GetKeyGenerator(_services, metadata.FPType).Create().Model;
                 modelKey.Set(metadata.Name, key);
                 metadata.SetValue(model, key);
             }

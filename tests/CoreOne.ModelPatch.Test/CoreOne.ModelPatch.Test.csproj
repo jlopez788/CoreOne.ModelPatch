@@ -30,6 +30,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\src\CoreOne.ModelPatch.Abstract\CoreOne.ModelPatch.Abstract.csproj" />
         <ProjectReference Include="..\..\src\CoreOne.ModelPatch\CoreOne.ModelPatch.csproj" />
         <ProjectReference Include="..\..\src\CoreOne.ModelPatch.Tenants\CoreOne.ModelPatch.Tenants.csproj" />
     </ItemGroup>
