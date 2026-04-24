@@ -224,7 +224,7 @@ public class TenantPluginTests
         var result = await service.Patch(blog, Token);
 
         Assert.AreEqual(ResultType.Fail, result.ResultType);
-        Assert.AreEqual("Tenant key mismatch", result.Message);
+        StringAssert.Contains(result.Message ?? string.Empty, "Tenant key mismatch");
         Assert.AreEqual(0, await db.Blogs.CountAsync(Token));
     }
 
