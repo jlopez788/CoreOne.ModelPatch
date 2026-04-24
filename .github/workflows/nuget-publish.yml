@@ -54,7 +54,7 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Pack NuGet
+      - name: Pack Nuget
         if: steps.check_nuget.outputs.exists == 'false'
         run: dotnet pack ${{ matrix.project.path }} --configuration Release
 
