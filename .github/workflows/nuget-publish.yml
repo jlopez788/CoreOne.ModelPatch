@@ -32,12 +32,6 @@ jobs:
             9.0.x
             10.0.x
 
-      - name: Restore solution
-        run: dotnet restore CoreOne.ModelPatch.sln
-
-      - name: Build solution
-        run: dotnet build CoreOne.ModelPatch.sln --configuration Release --no-restore
-
       - name: Get project version
         id: get_version
         run: |
@@ -62,8 +56,8 @@ jobs:
 
       - name: Pack NuGet
         if: steps.check_nuget.outputs.exists == 'false'
-        run: dotnet pack ${{ matrix.project.path }} --configuration Release --no-build --no-restore
+        run: dotnet pack ${{ matrix.project.path }} --configuration Release
 
       - name: Publish to NuGet
         if: steps.check_nuget.outputs.exists == 'false'
-        run: dotnet nuget push $(dirname ${{ matrix.project.path }})/bin/Release/*.nupkg --api-key ${{ secrets.NUGET_KEY }} --source https://api.nuget.org/v3/index.json
+        run: dotnet nuget push $(dirname ${{ matrix.project.path }})/bin/Release/*.nupkg --api-key ${{ secrets.NUGET_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
