@@ -31,7 +31,7 @@ jobs:
         run: dotnet restore CoreOne.ModelPatch.sln
 
       - name: Build solution
-        run: dotnet build CoreOne.ModelPatch.sln --configuration Release --framework ${{ matrix.target-framework }} --no-restore
+        run: dotnet build CoreOne.ModelPatch.sln --configuration Release --framework ${{ matrix.target-framework }}
 
       - name: Test solution
         run: dotnet test CoreOne.ModelPatch.sln --configuration Release --framework ${{ matrix.target-framework }} --no-build
