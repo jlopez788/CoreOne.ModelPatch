@@ -15,7 +15,7 @@ public class DeltaContextTest : Disposable
 {
     protected SToken Token = SToken.Create();
     protected TestDbContext Context { get; set; } = default!;
-    protected DataModelService<TestDbContext> Service { get; set; } = default!;
+    protected IDataModelService<TestDbContext> Service { get; set; } = default!;
     protected IServiceProvider Services { get; set; } = default!;
 
     public DeltaContextTest()
@@ -23,15 +23,11 @@ public class DeltaContextTest : Disposable
         Context = CreateContext();
         Services = new ServiceCollection()
                 .AddLogging()
-                .AddScoped(typeof(DataModelService<>))
                 .AddSingleton(Context)
-                .Configure<ModelOptions>(p => p.NameResolver = meta => {
-                    var attribute = meta.GetCustomAttribute<JsonPropertyAttribute>();
-                    return attribute?.PropertyName ?? meta.Name;
-                })
+                .AddModelPatch(p => p.UseNewtonsoftJsonPropertyNames())
                 .BuildServiceProvider();
 
-        Service = Services.GetRequiredService<DataModelService<TestDbContext>>();
+        Service = Services.GetRequiredService<IDataModelService<TestDbContext>>();
     }
 
     [TestMethod]

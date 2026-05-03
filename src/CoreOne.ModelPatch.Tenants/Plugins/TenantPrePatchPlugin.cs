@@ -71,12 +71,8 @@ public class TenantPrePatchPlugin(ITenantProvider tenantProvider, TenantPluginOp
 
     private static bool TenantKeysMatch(object? left, object? right)
     {
-        if (left is null || right is null)
-            return left is null && right is null;
-
-        if (Equals(left, right))
-            return true;
-
-        return string.Equals(left.ToString(), right.ToString(), StringComparison.OrdinalIgnoreCase);
+        return left is null || right is null
+            ? left is null && right is null
+            : Equals(left, right) || string.Equals(left.ToString(), right.ToString(), StringComparison.OrdinalIgnoreCase);
     }
 }

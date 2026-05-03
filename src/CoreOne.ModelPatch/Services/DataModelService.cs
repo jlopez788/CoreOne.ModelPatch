@@ -41,12 +41,9 @@ public class DataModelService<TContext> : BaseService, IDataModelService<TContex
         var dbsets = MetaType.GetMetadatas(typeof(TContext), Flags);
         ContextType = typeof(TContext);
         Context = context;
-        Options = options.Value ?? new() {
-            KeyGenerator = new GuidGenerator()
-        };
+        Options = options.Value ?? new();
         _services = services;
-        // Seed GuidGenerator as the default per-type generator for Guid primary keys
-        Options.KeyGenerators.TryAdd(typeof(Guid), new GuidGenerator());
+
         // Try to get PatchPluginProvider if registered, otherwise provide a no-op
         var provider = services.GetService<PatchPluginProvider>();
         if (provider is null)
@@ -202,10 +199,10 @@ public class DataModelService<TContext> : BaseService, IDataModelService<TContex
                 if (delta.TryGetValue(metadata.Name, out key))
                 {
                     var parsed = Types.Parse(metadata.FPType, key);
-                    key = parsed.Success ? parsed.Model : Options.GetKeyGenerator(_services, metadata.FPType).Create().Model;
+                    key = parsed.Success ? parsed.Model : Options.GetKeyGenerator(_services, metadata.FPType).CreateKey().Model;
                 }
                 else
-                    key = Options.GetKeyGenerator(_services, metadata.FPType).Create().Model;
+                    key = Options.GetKeyGenerator(_services, metadata.FPType).CreateKey().Model;
                 modelKey.Set(metadata.Name, key);
                 metadata.SetValue(model, key);
             }

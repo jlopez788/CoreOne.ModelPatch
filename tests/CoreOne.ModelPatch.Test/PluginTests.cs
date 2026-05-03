@@ -50,31 +50,29 @@ public class PluginTests : Disposable
     #region Backward Compatibility Tests
 
     [TestMethod]
-    public void ServiceCollection_CanRegisterModelPatch_WithoutPlugins()
-    {
-        var services = new ServiceCollection()
-                .AddLogging()
-                .AddModelPatch()
-                .BuildServiceProvider();
-
-        // Just verify it registers without error
-        var provider = services.GetService<PatchPluginProvider>();
-        Assert.IsNotNull(provider);
-    }
-
-    [TestMethod]
     public void ServiceCollection_CanRegisterDataModelService_WithoutPlugins()
     {
         var services = new ServiceCollection()
                 .AddLogging()
-                .AddModelPatch()
-                .AddScoped(typeof(DataModelService<>))
+                .AddModelPatch(p => p.UseNewtonsoftJsonPropertyNames())
                 .BuildServiceProvider();
 
         // Just verify it registers without error
         Assert.IsNotNull(services);
     }
 
+    [TestMethod]
+    public void ServiceCollection_CanRegisterModelPatch_WithoutPlugins()
+    {
+        var services = new ServiceCollection()
+                .AddLogging()
+                .AddModelPatch(p => p.UseNewtonsoftJsonPropertyNames())
+                .BuildServiceProvider();
+
+        // Just verify it registers without error
+        var provider = services.GetService<PatchPluginProvider>();
+        Assert.IsNotNull(provider);
+    }
     #endregion
 
     private TestDbContext CreateContext()
@@ -94,9 +92,8 @@ public class PluginTests : Disposable
     /// </summary>
     public class TestPrePatchPlugin : IPrePatchPlugin
     {
-        public int Order => 50;
         public List<ModelProcessContext> ExecutedContexts { get; } = [];
-
+        public int Order => 50;
         public ValueTask<IResult> Execute(ModelProcessContext context, CancellationToken cancellationToken = default)
         {
             ExecutedContexts.Add(context);

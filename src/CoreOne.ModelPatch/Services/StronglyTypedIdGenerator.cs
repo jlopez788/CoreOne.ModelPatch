@@ -8,7 +8,9 @@ public class StronglyTypedIdGenerator<T> : IKeyGenerator<T> where T : ICoreId<T>
     /// Generates a new version 7 GUID wrapped in a strongly-typed ID
     /// </summary>
     /// <returns>Strongly-typed ID containing a time-ordered GUID</returns>
-    public T Create() => CreateInstance(ID.Create().AsGuid());
+    public T Create() => CreateInstance(Guid.CreateVersion7());
+
+    public KeyModel CreateKey() => KeyModel.Create(Create());
 
     private static Func<Guid, T> GenerateFactory()
     {

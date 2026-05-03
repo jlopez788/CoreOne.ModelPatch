@@ -8,16 +8,14 @@ namespace CoreOne.ModelPatch.Plugins;
 /// </summary>
 public class ConcurrencyTokenValidationPlugin(IOptions<ModelOptions> options) : IPrePatchPlugin
 {
-    private readonly ModelOptions _options = options.Value ?? new() {
-        KeyGenerator = new GuidGenerator()
-    };
+    private readonly ModelOptions _options = options.Value ?? new();
     public int Order => 800;
 
     public ValueTask<IResult> Execute(ModelProcessContext context, CancellationToken cancellationToken = default)
     {
         var modelContext = context.Context;
         if (modelContext.ConcurrencyTokens.Count == 0)
-            return ValueTask.FromResult<IResult>(new Result());
+            return ValueTask.FromResult(Result.Ok);
 
         var providedTokens = modelContext.ConcurrencyTokens
             .Where(token => context.Delta.ContainsKey(_options.GetPreferredName(token)) || context.Delta.ContainsKey(token.Name))
@@ -27,7 +25,7 @@ public class ConcurrencyTokenValidationPlugin(IOptions<ModelOptions> options) : 
             return ValueTask.FromResult(Result.Fail($"Concurrency token is required for updates to {context.Type.Name}"));
 
         if (!_options.ValidateConcurrencyTokens || providedTokens.Count == 0)
-            return ValueTask.FromResult<IResult>(new Result());
+            return ValueTask.FromResult(Result.Ok);
 
         foreach (var token in providedTokens)
         {
@@ -39,7 +37,7 @@ public class ConcurrencyTokenValidationPlugin(IOptions<ModelOptions> options) : 
                 return ValueTask.FromResult(Result.Fail($"Concurrency token mismatch for {context.Type.Name}.{token.Name}"));
         }
 
-        return ValueTask.FromResult<IResult>(new Result());
+        return ValueTask.FromResult(Result.Ok);
     }
 
     private static object? ConvertTokenValue(Type type, object? value)

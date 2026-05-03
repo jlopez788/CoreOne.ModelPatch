@@ -6,4 +6,6 @@
 public class GuidGenerator : IKeyGenerator<Guid>
 {
     public Guid Create() => Guid.CreateVersion7();
+
+    public KeyModel CreateKey() => KeyModel.Create(Create());
 }

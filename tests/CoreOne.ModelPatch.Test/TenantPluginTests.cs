@@ -343,7 +343,7 @@ public class TenantPluginTests
         var root = new ServiceCollection()
             .AddLogging()
             .AddSingleton(context)
-            .AddModelPatch()
+            .AddModelPatch(p => p.UseNewtonsoftJsonPropertyNames())
             .AddTenantSupport<MockTenantProvider>(configure)
             .BuildServiceProvider();
 

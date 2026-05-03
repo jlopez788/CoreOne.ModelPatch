@@ -23,7 +23,7 @@ public static class ServiceCollectionExtensions
         // Keep concrete ModelOptions injection working for existing consumers.
         services.TryAddSingleton(p => p.GetRequiredService<IOptions<ModelOptions>>().Value);
         services.TryAddScoped(typeof(IDataModelService<>), typeof(DataModelService<>));
-        services.TryAddScoped<IKeyGenerator, GuidGenerator>();
+        services.TryAddScoped(typeof(IKeyGenerator<Guid>), typeof(GuidGenerator));
         services.TryAddScoped(typeof(IKeyGenerator<>), typeof(StronglyTypedIdGenerator<>));
         services.TryAddScoped<PatchPluginProvider>();
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IPrePatchPlugin, StrictPropertyValidationPlugin>());

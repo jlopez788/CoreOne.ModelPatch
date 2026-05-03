@@ -33,9 +33,7 @@ internal static class ModelOptionExtensions
             return registered;
 
         var genericType = typeof(IKeyGenerator<>).MakeGenericType(keyType);
-        if (services.GetService(genericType) is IKeyGenerator fromDi)
-            return fromDi;
-
-        return options.KeyGenerator;
+        return services.GetService(genericType) is IKeyGenerator service ? service :
+            throw new InvalidOperationException($"Key generator is not currently registered for type {keyType.Name}");
     }
 }

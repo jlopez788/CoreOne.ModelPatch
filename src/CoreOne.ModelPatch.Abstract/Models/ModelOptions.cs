@@ -16,10 +16,6 @@ public class ModelOptions
     /// </summary>
     public DataHashSet<Type, string> IgnoreFields { get; }
     /// <summary>
-    /// Strategy for generating primary key values when creating new entities
-    /// </summary>
-    public required IKeyGenerator KeyGenerator { get; set; }
-    /// <summary>
     /// Per-type key generators. Checked before <see cref="KeyGenerator"/> when resolving a generator for a specific key type.
     /// </summary>
     public Data<Type, IKeyGenerator> KeyGenerators { get; } = [];

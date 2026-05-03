@@ -38,22 +38,19 @@ public class BranchCoverageTests : Disposable
     protected SToken Token = SToken.Create();
     protected TestDbContext Context { get; set; } = default!;
     protected IOptions<ModelOptions> Options { get; set; } = default!;
-    protected DataModelService<TestDbContext> Service { get; set; } = default!;
+    protected IDataModelService<TestDbContext> Service { get; set; } = default!;
     protected IServiceProvider Services { get; set; } = default!;
+
     public BranchCoverageTests()
     {
         Context = CreateContext();
         Services = new ServiceCollection()
                 .AddLogging()
-                .AddScoped(typeof(DataModelService<>))
                 .AddSingleton(Context)
-                .Configure<ModelOptions>(p => p.NameResolver = meta => {
-                    var attribute = meta.GetCustomAttribute<JsonPropertyAttribute>();
-                    return attribute?.PropertyName ?? meta.Name;
-                })
+                .AddModelPatch(p => p.UseNewtonsoftJsonPropertyNames())
                 .BuildServiceProvider();
 
-        Service = Services.GetRequiredService<DataModelService<TestDbContext>>();
+        Service = Services.GetRequiredService<IDataModelService<TestDbContext>>();
         Options = Services.GetRequiredService<IOptions<ModelOptions>>();
     }
 
@@ -117,6 +114,7 @@ public class BranchCoverageTests : Disposable
         Assert.AreEqual(5, result.Rows);
         Assert.AreEqual(blog, result.Model);
     }
+
     #endregion
 
     #region ProcessedModelExtensions Tests
@@ -166,6 +164,7 @@ public class BranchCoverageTests : Disposable
         var count = result.Count(p => p.CrudType == CrudType.Created);
         Assert.AreEqual(1, count);
     }
+
     [TestMethod]
     public void ProcessedModelExtensions_OfType_EmptyCollection()
     {
@@ -213,6 +212,7 @@ public class BranchCoverageTests : Disposable
         Assert.HasCount(1, createdBlogs);
         Assert.AreEqual("Blog1", createdBlogs[0].Name);
     }
+
     #endregion
 
     #region TransactionState Tests
@@ -244,6 +244,7 @@ public class BranchCoverageTests : Disposable
         await transaction.DisposeAsync();
         Assert.IsTrue(transaction.IsDisposed);
     }
+
     [TestMethod]
     public async Task TransactionState_FailedTransaction()
     {
@@ -281,6 +282,7 @@ public class BranchCoverageTests : Disposable
         // Second rollback should be safe
         await transaction.Rollback();
     }
+
     #endregion
 
     #region DataModelService Error Path Tests
@@ -441,6 +443,7 @@ public class BranchCoverageTests : Disposable
         Assert.AreEqual(ResultType.Success, result.ResultType);
         Assert.AreEqual(2, result.Count()); // Nulls should be excluded
     }
+
     #endregion
 
     #region ModelContext Branch Tests
@@ -500,6 +503,7 @@ public class BranchCoverageTests : Disposable
         Assert.AreEqual("updated.com", saved.Url);
         Assert.AreEqual("Original Name", saved.Name); // Should remain unchanged
     }
+
     #endregion
 
     #region DeltaExtensions Branch Tests
@@ -569,6 +573,7 @@ public class BranchCoverageTests : Disposable
         Assert.IsNotNull(deltaCollection);
         Assert.IsEmpty(deltaCollection);
     }
+
     [TestMethod]
     public void ToDeltaCollection_WithNullElements()
     {
@@ -582,6 +587,7 @@ public class BranchCoverageTests : Disposable
 
         Assert.HasCount(2, deltaCollection);
     }
+
     #endregion
 
     #region ModelOptions Json Helpers Tests
@@ -590,8 +596,7 @@ public class BranchCoverageTests : Disposable
     public void ModelOptions_UseJsonPropertyNames_FallsBackToExistingResolver()
     {
         var options = new ModelOptions {
-            NameResolver = meta => $"mapped_{meta.Name}",
-            KeyGenerator = new GuidGenerator()
+            NameResolver = meta => $"mapped_{meta.Name}"
         }.UseJsonPropertyNames();
         var attributed = MetaType.GetMetadatas(typeof(SystemTextJsonPatchDto)).First(p => p.Name == nameof(SystemTextJsonPatchDto.DisplayName));
         var plain = MetaType.GetMetadatas(typeof(SystemTextJsonPatchDto)).First(p => p.Name == nameof(SystemTextJsonPatchDto.PlainName));
@@ -603,9 +608,8 @@ public class BranchCoverageTests : Disposable
     [TestMethod]
     public void ModelOptions_UseNewtonsoftJsonPropertyNames()
     {
-        var options = new ModelOptions {
-            KeyGenerator = new GuidGenerator()
-        }.UseNewtonsoftJsonPropertyNames();
+        var options = new ModelOptions()
+            .UseNewtonsoftJsonPropertyNames();
         var metadata = MetaType.GetMetadatas(typeof(Tag)).First(p => p.Name == nameof(Tag.Name));
 
         var name = options.NameResolver?.Invoke(metadata);
@@ -615,14 +619,14 @@ public class BranchCoverageTests : Disposable
     [TestMethod]
     public void ModelOptions_UseSystemTextJsonPropertyNames()
     {
-        var options = new ModelOptions {
-            KeyGenerator = new GuidGenerator()
-        }.UseSystemTextJsonPropertyNames();
+        var options = new ModelOptions()
+            .UseSystemTextJsonPropertyNames();
         var metadata = MetaType.GetMetadatas(typeof(SystemTextJsonPatchDto)).First(p => p.Name == nameof(SystemTextJsonPatchDto.DisplayName));
 
         var name = options.NameResolver?.Invoke(metadata);
         Assert.AreEqual("display_name", name);
     }
+
     #endregion
 
     #region ModelContext Deep Tests
@@ -668,6 +672,7 @@ public class BranchCoverageTests : Disposable
         Assert.AreEqual("MyBlogId", context.Link.ChildProperty);
         Assert.IsTrue(context.IsValid);
     }
+
     #endregion
 
     #region ProcessedModelCollection Tests
@@ -736,6 +741,7 @@ public class BranchCoverageTests : Disposable
         var str = collection.ToString();
         Assert.AreEqual("Count: 2", str);
     }
+
     #endregion
 
     #region ModelContextExtensions Advanced Tests
@@ -770,6 +776,7 @@ public class BranchCoverageTests : Disposable
         Assert.IsTrue(context.IsValid); // Should have keys
         Assert.IsGreaterThan(0, context.Keys.Count);
     }
+
     [TestMethod]
     public async Task Patch_CompositeKeyScenario()
     {
@@ -1143,14 +1150,17 @@ public class BranchCoverageTests : Disposable
         Assert.AreEqual("Updated Blog", saved.Name);
         Assert.HasCount(2, saved.Posts);
     }
+
     [TestMethod]
     public void ServiceCollectionExtensions_AddModelPatch_RegistersOptionsAndService()
     {
         var services = new ServiceCollection()
             .AddLogging()
             .AddSingleton(CreateContext())
-            .AddModelPatch(options => options.StrictPropertyMatching = true)
-            .BuildServiceProvider();
+            .AddModelPatch(p => {
+                p.StrictPropertyMatching = true;
+                p.UseNewtonsoftJsonPropertyNames();
+            }).BuildServiceProvider();
 
         var service = services.GetRequiredService<IDataModelService<TestDbContext>>();
         var options = services.GetRequiredService<IOptions<ModelOptions>>();

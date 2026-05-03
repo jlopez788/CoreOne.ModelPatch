@@ -2,11 +2,7 @@
 
 public interface IKeyGenerator
 {
-    /// <summary>
-    /// Generates a new unique identifier for an entity
-    /// </summary>
-    /// <returns>Create primary key value</returns>
-    KeyModel Create();
+    KeyModel CreateKey();
 }
 
 public interface IKeyGenerator<TKey> : IKeyGenerator where TKey : notnull
@@ -15,10 +11,5 @@ public interface IKeyGenerator<TKey> : IKeyGenerator where TKey : notnull
     /// Generates a new strongly-typed unique identifier
     /// </summary>
     /// <returns>New key value of type <typeparamref name="TKey"/></returns>
-    new TKey Create();
-
-    /// <summary>
-    /// Bridges the untyped interface to the typed implementation
-    /// </summary>
-    KeyModel IKeyGenerator.Create() => KeyModel.Create(Create()!);
+    TKey Create();
 }

@@ -8,7 +8,7 @@ namespace CoreOne.ModelPatch.Plugins;
 /// </summary>
 public class StrictPropertyValidationPlugin(IOptions<ModelOptions> options) : IPrePatchPlugin
 {
-    private readonly ModelOptions _options = options.Value ?? new() { KeyGenerator = new GuidGenerator() };
+    private readonly ModelOptions _options = options.Value ?? new();
     public int Order => 1001;
 
     public ValueTask<IResult> Execute(ModelProcessContext context, CancellationToken cancellationToken = default)
