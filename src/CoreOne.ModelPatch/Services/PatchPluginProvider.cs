@@ -52,7 +52,7 @@ public class PatchPluginProvider(IEnumerable<IPrePatchPlugin> prePatchPlugins, I
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "{name} plugin {PluginType} failed for entity {EntityType}", name, plugin.GetType().Name, entityName);
+                logger.LogEntryX(ex, "{name} plugin {PluginType} failed for entity {EntityType}", name, plugin.GetType().Name, entityName);
                 return Result.FromException(ex);
             }
 

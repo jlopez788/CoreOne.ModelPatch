@@ -5,7 +5,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
-        <Version>1.0.0.1</Version>
+        <Version>1.0.1</Version>
         <Title>CoreOne.ModelPatch.Abstract</Title>
         <Authors>Juan Lopez</Authors>
         <Company>Juan Lopez</Company>
@@ -13,7 +13,15 @@
         <PackageId>CoreOne.ModelPatch.Abstract</PackageId>
         <Product>CoreOne.ModelPatch.Abstract</Product>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.9" />

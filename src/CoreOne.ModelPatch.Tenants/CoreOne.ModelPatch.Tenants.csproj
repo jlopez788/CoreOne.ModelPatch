@@ -5,7 +5,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
-        <Version>1.0.0.1</Version>
+        <Version>1.0.1</Version>
         <Title>CoreOne.ModelPatch</Title>
         <Authors>Juan Lopez</Authors>
         <Company>Juan Lopez</Company>
@@ -13,7 +13,15 @@
         <PackageId>CoreOne.ModelPatch.Tenants</PackageId>
         <Product>CoreOne.ModelPatch.Tenants</Product>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\CoreOne.ModelPatch\CoreOne.ModelPatch.csproj" />
